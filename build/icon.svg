@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="cloud" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#e0e7ff;stop-opacity:0.9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Cloud -->
+  <path fill="url(#cloud)" d="M384 280c0-44.2-35.8-80-80-80-4.4 0-8.7.4-12.9 1.1C278.3 161.5 241.1 136 198 136c-55.2 0-100 44.8-100 100 0 3.4.2 6.8.5 10.1C64.1 256.3 40 287.5 40 324c0 44.2 35.8 80 80 80h244c44.2 0 80-35.8 80-80 0-18.4-6.2-35.3-16.6-48.8C401.5 275.2 384 280 384 280z"/>
+
+  <!-- Music note -->
+  <path fill="#6366f1" d="M280 220v100c-7.4-4.3-16-7-25.3-7-26.5 0-48 21.5-48 48s21.5 48 48 48 48-21.5 48-48V268h48v-48h-70.7z"/>
+
+  <!-- Glow effect on note -->
+  <path fill="#4f46e5" opacity="0.3" d="M280 220v100c-7.4-4.3-16-7-25.3-7-26.5 0-48 21.5-48 48s21.5 48 48 48 48-21.5 48-48V268h48v-48h-70.7z" transform="translate(2,2)"/>
+</svg>
