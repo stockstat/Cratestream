@@ -6,6 +6,7 @@ import { ProgressBar } from '../../components/ProgressBar';
 import { VolumeControl } from '../../components/VolumeControl';
 import { TrackList } from '../../components/TrackList';
 import { FileOpener } from '../../components/FileOpener';
+import { CloudBrowser } from '../../components/CloudBrowser';
 
 interface ModernSkinProps {
   onSeek: (time: number) => void;
@@ -58,27 +59,8 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
             </nav>
           </div>
 
-          <div className="p-4 border-t border-app-surface-light">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-app-text-muted mb-4">
-              Cloud Storage
-            </h2>
-            <div className="space-y-2">
-              <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-app-text-muted hover:bg-app-surface-light transition-colors text-left">
-                <span className="text-xl">📦</span>
-                <span>Dropbox</span>
-                <span className="ml-auto text-xs bg-app-surface-light px-2 py-0.5 rounded">Soon</span>
-              </button>
-              <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-app-text-muted hover:bg-app-surface-light transition-colors text-left">
-                <span className="text-xl">🔷</span>
-                <span>Google Drive</span>
-                <span className="ml-auto text-xs bg-app-surface-light px-2 py-0.5 rounded">Soon</span>
-              </button>
-              <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-app-text-muted hover:bg-app-surface-light transition-colors text-left">
-                <span className="text-xl">☁️</span>
-                <span>OneDrive</span>
-                <span className="ml-auto text-xs bg-app-surface-light px-2 py-0.5 rounded">Soon</span>
-              </button>
-            </div>
+          <div className="p-4 border-t border-app-surface-light flex-1 overflow-y-auto">
+            <CloudBrowser variant="modern" />
           </div>
 
           <div className="mt-auto p-4 border-t border-app-surface-light">
