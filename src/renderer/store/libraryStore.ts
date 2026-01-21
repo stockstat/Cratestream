@@ -405,10 +405,14 @@ export const useLibraryStore = create<LibraryStore>()(
       clearSelection: () => set({ selectedTrackIds: new Set() }),
     }),
     {
-      name: 'cloud-music-library-storage',
+      name: 'cloudstream-library-storage',
       partialize: (state) => ({
         tracks: state.tracks,
-        playlists: state.playlists,
+        playlists: state.playlists.map(p => ({
+          ...p,
+          createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
+          updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : p.updatedAt,
+        })),
         cloudAccounts: state.cloudAccounts.map(a => ({
           ...a,
           accessToken: '', // Don't persist tokens in local storage
@@ -417,6 +421,16 @@ export const useLibraryStore = create<LibraryStore>()(
         sortField: state.sortField,
         sortDirection: state.sortDirection,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Convert date strings back to Date objects
+        if (state?.playlists) {
+          state.playlists = state.playlists.map(p => ({
+            ...p,
+            createdAt: new Date(p.createdAt),
+            updatedAt: new Date(p.updatedAt),
+          }));
+        }
+      },
     }
   )
 );

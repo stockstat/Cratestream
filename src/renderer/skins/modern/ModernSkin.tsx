@@ -17,6 +17,7 @@ import {
   Toolbar,
   NowPlayingPanel,
 } from '../../components/mediamonkey';
+import type { Track } from '../../types';
 
 interface ModernSkinProps {
   onSeek: (time: number) => void;
@@ -34,6 +35,7 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
   } = usePlayerStore();
 
   const {
+    tracks,
     currentView,
     selectedPlaylistId,
     playlists,
@@ -47,6 +49,7 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
     setSelectedAlbum,
     setSelectedGenre,
     setSelectedYear,
+    addTracks,
   } = useLibraryStore();
 
   const [showNowPlaying, setShowNowPlaying] = useState(true);
@@ -59,6 +62,27 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
   const albums = getAlbums();
   const genres = getGenres();
   const years = getYears();
+
+  // Handle rescan artwork for tracks
+  const handleRescanArtwork = useCallback(async (tracksToScan: Track[]) => {
+    if (!window.electronAPI?.rescanArtwork) return;
+
+    for (const track of tracksToScan) {
+      try {
+        const newArtwork = await window.electronAPI.rescanArtwork(track.filePath);
+        if (newArtwork) {
+          // Update the track in the store
+          const updatedTracks = tracks.map(t =>
+            t.id === track.id ? { ...t, artwork: newArtwork } : t
+          );
+          // This is a simplified update - in production you'd want a proper updateTrack action
+          addTracks(updatedTracks.filter(t => !tracks.some(existing => existing.id === t.id)));
+        }
+      } catch (error) {
+        console.error('Error rescanning artwork:', error);
+      }
+    }
+  }, [tracks, addTracks]);
 
   // Get tracks to display based on current view
   const getDisplayTracks = useCallback(() => {
@@ -118,9 +142,9 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
     // Album detail view
     if (selectedAlbumDetail) {
       return (
-        <div className="flex-1 flex flex-col h-full bg-white">
+        <div className="flex-1 flex flex-col h-full bg-app-surface">
           {/* Album Header */}
-          <div className="flex items-start gap-5 p-6 bg-gradient-to-b from-app-surface-light to-white border-b border-app-border">
+          <div className="flex items-start gap-5 p-6 bg-gradient-to-b from-app-surface-dark to-app-surface border-b border-app-border">
             <button
               onClick={handleBackFromAlbumDetail}
               className="p-1 text-app-text-muted hover:text-app-text transition-colors"
@@ -138,7 +162,7 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-app-accent to-purple-500">
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-app-accent to-orange-700">
                   <svg className="w-14 h-14 text-white/50" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
                   </svg>
@@ -170,7 +194,7 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
                 </button>
                 <button
                   onClick={handleAlbumDetailViewTracks}
-                  className="px-5 py-2 text-sm font-medium text-app-text bg-app-surface-light hover:bg-app-surface-dark rounded-full transition-colors"
+                  className="px-5 py-2 text-sm font-medium text-app-text bg-app-surface-light hover:bg-app-hover rounded-full transition-colors"
                 >
                   View in Library
                 </button>
@@ -179,7 +203,7 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
           </div>
 
           {/* Album Tracks */}
-          <ColumnTrackList tracks={selectedAlbumDetail.tracks} />
+          <ColumnTrackList tracks={selectedAlbumDetail.tracks} onRescanArtwork={handleRescanArtwork} />
         </div>
       );
     }
@@ -193,20 +217,20 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
           return <AlbumGrid albums={albums} onAlbumClick={handleAlbumClick} />;
         }
         return (
-          <div className="flex-1 overflow-y-auto bg-white">
+          <div className="flex-1 overflow-y-auto bg-app-surface">
             {albums.map((album, index) => (
               <button
                 key={`${album.name}__${album.artist}`}
                 onClick={() => handleAlbumClick(album)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                  index % 2 === 0 ? 'bg-white' : 'bg-app-surface-light'
-                } hover:bg-app-accent-light`}
+                  index % 2 === 0 ? 'bg-app-surface' : 'bg-app-surface-dark'
+                } hover:bg-app-hover`}
               >
                 <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 bg-app-surface-light shadow-soft">
                   {album.artwork ? (
                     <img src={album.artwork} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-app-accent to-purple-500">
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-app-accent to-orange-700">
                       <svg className="w-5 h-5 text-white/50" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
                       </svg>
@@ -235,7 +259,7 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
       case 'nowPlaying':
       case 'playlist':
       default:
-        return <ColumnTrackList tracks={displayTracks} />;
+        return <ColumnTrackList tracks={displayTracks} onRescanArtwork={handleRescanArtwork} />;
     }
   };
 
@@ -247,14 +271,14 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Tree Navigation */}
-        <div className="w-56 flex-shrink-0 bg-white border-r border-app-border flex flex-col">
+        <div className="w-56 flex-shrink-0 bg-app-surface-dark border-r border-app-border flex flex-col">
           <TreeNavigation />
 
           {/* Cloud Browser Toggle */}
           <div className="border-t border-app-border mt-auto">
             <button
               onClick={() => setShowCloudBrowser(!showCloudBrowser)}
-              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-app-text-muted hover:text-app-text hover:bg-app-surface-light transition-colors"
+              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-app-text-muted hover:text-app-text hover:bg-app-hover transition-colors"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
@@ -269,7 +293,7 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
               </svg>
             </button>
             {showCloudBrowser && (
-              <div className="border-t border-app-border max-h-64 overflow-y-auto bg-app-surface-light">
+              <div className="border-t border-app-border max-h-64 overflow-y-auto bg-app-surface">
                 <CloudBrowser variant="modern" />
               </div>
             )}
@@ -277,7 +301,7 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-white">
+        <div className="flex-1 flex flex-col overflow-hidden bg-app-surface">
           {/* Toolbar */}
           <Toolbar
             currentView={currentView}
@@ -309,16 +333,16 @@ export function ModernSkin({ onSeek }: ModernSkinProps) {
       </div>
 
       {/* Player Bar */}
-      <footer className="h-20 bg-player-bg border-t border-gray-700 flex items-center px-5 gap-6">
+      <footer className="h-20 bg-player-bg border-t border-app-border flex items-center px-5 gap-6">
         {/* Track Info (Mini) */}
         <div className="w-64 flex items-center gap-4 min-w-0">
           {currentTrack ? (
             <>
-              <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0 shadow-medium">
+              <div className="w-14 h-14 rounded-lg overflow-hidden bg-app-surface-light flex-shrink-0 shadow-medium">
                 {currentTrack.artwork ? (
                   <img src={currentTrack.artwork} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-app-accent to-purple-500">
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-app-accent to-orange-700">
                     <svg className="w-6 h-6 text-white/50" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                     </svg>

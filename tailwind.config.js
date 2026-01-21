@@ -6,31 +6,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Modern bright theme colors
-        'app-bg': '#f8fafc',
-        'app-surface': '#ffffff',
-        'app-surface-light': '#f1f5f9',
-        'app-surface-dark': '#e2e8f0',
-        'app-accent': '#6366f1',
-        'app-accent-hover': '#4f46e5',
-        'app-accent-light': '#eef2ff',
-        'app-text': '#1e293b',
-        'app-text-muted': '#64748b',
-        'app-text-light': '#94a3b8',
-        'app-border': '#e2e8f0',
-        'app-border-dark': '#cbd5e1',
+        // MediaMonkey-style dark theme with orange accents
+        'app-bg': '#1e1e1e',
+        'app-surface': '#2d2d30',
+        'app-surface-light': '#3e3e42',
+        'app-surface-dark': '#252526',
+        'app-accent': '#e87f00',
+        'app-accent-hover': '#ff9420',
+        'app-accent-light': '#3d3020',
+        'app-text': '#ffffff',
+        'app-text-muted': '#a0a0a0',
+        'app-text-light': '#707070',
+        'app-border': '#3e3e42',
+        'app-border-dark': '#2d2d30',
 
-        // Player bar (slightly darker for contrast)
-        'player-bg': '#1e293b',
-        'player-text': '#f8fafc',
-        'player-muted': '#94a3b8',
+        // Player bar
+        'player-bg': '#1a1a1a',
+        'player-text': '#ffffff',
+        'player-muted': '#888888',
+
+        // Selection/highlight
+        'app-selected': '#3d3d20',
+        'app-hover': '#3a3a3a',
       },
       fontFamily: {
-        'sans': ['Inter', 'system-ui', 'sans-serif'],
+        'sans': ['Segoe UI', 'Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        'soft': '0 2px 8px rgba(0, 0, 0, 0.08)',
-        'medium': '0 4px 12px rgba(0, 0, 0, 0.1)',
+        'soft': '0 2px 8px rgba(0, 0, 0, 0.3)',
+        'medium': '0 4px 12px rgba(0, 0, 0, 0.4)',
       },
     },
   },

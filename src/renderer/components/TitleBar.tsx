@@ -8,20 +8,20 @@ export function TitleBar({ variant = 'modern' }: TitleBarProps) {
   const handleClose = () => window.electronAPI?.close();
 
   return (
-    <div className="h-10 bg-white flex items-center justify-between px-4 drag-region border-b border-slate-200">
+    <div className="h-10 bg-app-surface-dark flex items-center justify-between px-4 drag-region border-b border-app-border">
       <div className="flex items-center gap-3 no-drag">
-        <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center shadow-sm">
+        <div className="w-7 h-7 bg-gradient-to-br from-app-accent to-orange-600 rounded-lg flex items-center justify-center shadow-sm">
           <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
           </svg>
         </div>
-        <span className="text-slate-700 font-semibold text-sm">Cloud Music Player</span>
+        <span className="text-app-text font-semibold text-sm">CloudStream</span>
       </div>
 
       <div className="flex items-center gap-1 no-drag">
         <button
           onClick={handleMinimize}
-          className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+          className="w-8 h-8 flex items-center justify-center text-app-text-muted hover:text-app-text hover:bg-app-surface-light rounded transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -29,7 +29,7 @@ export function TitleBar({ variant = 'modern' }: TitleBarProps) {
         </button>
         <button
           onClick={handleMaximize}
-          className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+          className="w-8 h-8 flex items-center justify-center text-app-text-muted hover:text-app-text hover:bg-app-surface-light rounded transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4" />
@@ -37,7 +37,7 @@ export function TitleBar({ variant = 'modern' }: TitleBarProps) {
         </button>
         <button
           onClick={handleClose}
-          className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500 rounded transition-colors"
+          className="w-8 h-8 flex items-center justify-center text-app-text-muted hover:text-white hover:bg-red-500 rounded transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

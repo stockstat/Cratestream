@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as mm from 'music-metadata';
@@ -364,6 +364,48 @@ ipcMain.handle('fs:scanFolder', async (_, folderPath: string): Promise<string[]>
 
   await scanDir(folderPath);
   return audioFiles;
+});
+
+// Show file in folder (file explorer)
+ipcMain.handle('fs:showInFolder', async (_, filePath: string): Promise<void> => {
+  try {
+    shell.showItemInFolder(filePath);
+  } catch (error) {
+    console.error('Error showing file in folder:', error);
+  }
+});
+
+// Rescan artwork for a file (clear cache and re-scan)
+ipcMain.handle('metadata:rescanArtwork', async (_, filePath: string): Promise<string | null> => {
+  try {
+    // Clear folder artwork cache for this folder
+    const folderPath = path.dirname(filePath);
+    folderArtworkCache.delete(folderPath);
+
+    // Clear any cached artwork for this file
+    for (const key of artworkCache.keys()) {
+      if (key.startsWith(filePath)) {
+        artworkCache.delete(key);
+      }
+    }
+
+    // First try embedded artwork
+    const metadata = await mm.parseFile(filePath);
+    if (metadata.common.picture && metadata.common.picture.length > 0) {
+      const picture = metadata.common.picture[0];
+      const base64 = picture.data.toString('base64');
+      const artworkDataUrl = `data:${picture.format};base64,${base64}`;
+      artworkCache.set(`${filePath}-${picture.data.length}`, artworkDataUrl);
+      return artworkDataUrl;
+    }
+
+    // Then try folder artwork
+    const folderArtwork = await findFolderArtwork(folderPath);
+    return folderArtwork;
+  } catch (error) {
+    console.error('Error rescanning artwork:', error);
+    return null;
+  }
 });
 
 // App lifecycle

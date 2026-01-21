@@ -33,10 +33,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readDir: (path: string) => ipcRenderer.invoke('fs:readDir', path),
   readFile: (path: string) => ipcRenderer.invoke('fs:readFile', path),
   scanFolder: (path: string) => ipcRenderer.invoke('fs:scanFolder', path),
+  showInFolder: (filePath: string) => ipcRenderer.invoke('fs:showInFolder', filePath),
 
   // Metadata parsing
   parseMetadata: (filePath: string) => ipcRenderer.invoke('metadata:parse', filePath),
   parseMetadataMultiple: (filePaths: string[]) => ipcRenderer.invoke('metadata:parseMultiple', filePaths),
+  rescanArtwork: (filePath: string) => ipcRenderer.invoke('metadata:rescanArtwork', filePath),
 
   // Platform info
   platform: process.platform,
@@ -57,10 +59,12 @@ export interface ElectronAPI {
   readDir: (path: string) => Promise<Array<{ name: string; isDirectory: boolean; path: string }>>;
   readFile: (path: string) => Promise<Buffer | null>;
   scanFolder: (path: string) => Promise<string[]>;
+  showInFolder: (filePath: string) => Promise<void>;
 
   // Metadata parsing
   parseMetadata: (filePath: string) => Promise<TrackMetadata | null>;
   parseMetadataMultiple: (filePaths: string[]) => Promise<(TrackMetadata | null)[]>;
+  rescanArtwork: (filePath: string) => Promise<string | null>;
 
   // Platform info
   platform: string;

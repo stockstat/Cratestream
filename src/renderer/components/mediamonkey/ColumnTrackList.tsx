@@ -1,11 +1,13 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useLibraryStore, SortField } from '../../store/libraryStore';
+import { ContextMenu } from '../ContextMenu';
 import type { Track } from '../../types';
 
 interface ColumnTrackListProps {
   tracks: Track[];
   onTrackSelect?: (track: Track, index: number) => void;
+  onRescanArtwork?: (tracks: Track[]) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -18,40 +20,6 @@ function formatDuration(seconds: number): string {
 function formatBitrate(bitrate?: number): string {
   if (!bitrate) return '-';
   return `${bitrate} kbps`;
-}
-
-interface RatingStarsProps {
-  rating?: number;
-  onChange?: (rating: number) => void;
-}
-
-function RatingStars({ rating = 0, onChange }: RatingStarsProps) {
-  const [hoverRating, setHoverRating] = useState(0);
-
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(star => (
-        <button
-          key={star}
-          onClick={(e) => {
-            e.stopPropagation();
-            onChange?.(star);
-          }}
-          onMouseEnter={() => setHoverRating(star)}
-          onMouseLeave={() => setHoverRating(0)}
-          className="text-[10px] focus:outline-none"
-        >
-          <span className={
-            (hoverRating || rating) >= star
-              ? 'text-amber-400'
-              : 'text-slate-300'
-          }>
-            *
-          </span>
-        </button>
-      ))}
-    </div>
-  );
 }
 
 interface ColumnConfig {
@@ -72,21 +40,20 @@ const defaultColumns: ColumnConfig[] = [
   { id: 'genre', label: 'Genre', width: 100, minWidth: 60, sortField: 'genre' },
   { id: 'duration', label: 'Duration', width: 70, minWidth: 60, sortField: 'duration', align: 'right' },
   { id: 'bitrate', label: 'Bitrate', width: 80, minWidth: 60, sortField: 'bitrate', align: 'right' },
-  { id: 'rating', label: 'Rating', width: 80, minWidth: 60, align: 'center' },
 ];
 
-export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps) {
+export function ColumnTrackList({ tracks, onTrackSelect, onRescanArtwork }: ColumnTrackListProps) {
   const { currentTrack, setQueue } = usePlayerStore();
   const { sortField, sortDirection, toggleSort, selectedTrackIds, setSelectedTrackIds, clearSelection } = useLibraryStore();
   const [columns, setColumns] = useState(defaultColumns);
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
 
   const handleTrackClick = useCallback((track: Track, index: number, event: React.MouseEvent) => {
     if (event.ctrlKey || event.metaKey) {
-      // Multi-select with Ctrl/Cmd
       const newSelection = new Set(selectedTrackIds);
       if (newSelection.has(track.id)) {
         newSelection.delete(track.id);
@@ -95,7 +62,6 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
       }
       setSelectedTrackIds(newSelection);
     } else if (event.shiftKey && selectedTrackIds.size > 0) {
-      // Range select with Shift
       const lastSelectedId = Array.from(selectedTrackIds).pop();
       const lastSelectedIndex = tracks.findIndex(t => t.id === lastSelectedId);
       const start = Math.min(lastSelectedIndex, index);
@@ -106,7 +72,6 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
       }
       setSelectedTrackIds(newSelection);
     } else {
-      // Single select
       setSelectedTrackIds(new Set([track.id]));
     }
   }, [selectedTrackIds, setSelectedTrackIds, tracks]);
@@ -119,6 +84,11 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
     }
     clearSelection();
   }, [onTrackSelect, setQueue, tracks, clearSelection]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, track: Track) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, track });
+  }, []);
 
   const handleColumnResize = useCallback((columnId: string, event: React.MouseEvent) => {
     event.preventDefault();
@@ -164,7 +134,7 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
   const renderSortIndicator = (field?: SortField) => {
     if (!field || sortField !== field) return null;
     return (
-      <span className="ml-1 text-indigo-500">
+      <span className="ml-1 text-app-accent">
         {sortDirection === 'asc' ? (
           <svg className="w-3 h-3 inline" fill="currentColor" viewBox="0 0 12 12">
             <path d="M6 2l4 6H2z"/>
@@ -182,9 +152,9 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
     switch (column.id) {
       case 'trackNumber':
         return (
-          <span className="text-slate-400">
+          <span className="text-app-text-light">
             {currentTrack?.id === track.id ? (
-              <span className="text-green-500">*</span>
+              <span className="text-app-accent">*</span>
             ) : (
               index + 1
             )}
@@ -200,50 +170,52 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
                 className="w-6 h-6 rounded flex-shrink-0 object-cover"
               />
             ) : (
-              <div className="w-6 h-6 rounded flex-shrink-0 bg-slate-100 flex items-center justify-center">
-                <svg className="w-3 h-3 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+              <div className="w-6 h-6 rounded flex-shrink-0 bg-app-surface-light flex items-center justify-center">
+                <svg className="w-3 h-3 text-app-text-light" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                 </svg>
               </div>
             )}
-            <span className="truncate text-slate-700">{track.title}</span>
+            <span className="truncate text-app-text">{track.title}</span>
           </div>
         );
       case 'artist':
-        return <span className="truncate text-slate-500">{track.artist || '-'}</span>;
+        return <span className="truncate text-app-text-muted">{track.artist || '-'}</span>;
       case 'album':
-        return <span className="truncate text-slate-500">{track.album || '-'}</span>;
+        return <span className="truncate text-app-text-muted">{track.album || '-'}</span>;
       case 'year':
-        return <span className="text-slate-500">{track.year || '-'}</span>;
+        return <span className="text-app-text-muted">{track.year || '-'}</span>;
       case 'genre':
-        return <span className="truncate text-slate-500">{track.genre || '-'}</span>;
+        return <span className="truncate text-app-text-muted">{track.genre || '-'}</span>;
       case 'duration':
-        return <span className="text-slate-500">{formatDuration(track.duration)}</span>;
+        return <span className="text-app-text-muted">{formatDuration(track.duration)}</span>;
       case 'bitrate':
-        return <span className="text-slate-500">{formatBitrate(track.bitrate)}</span>;
-      case 'rating':
-        return <RatingStars rating={0} />;
+        return <span className="text-app-text-muted">{formatBitrate(track.bitrate)}</span>;
       default:
         return null;
     }
   };
 
+  const getSelectedTracks = () => {
+    return tracks.filter(t => selectedTrackIds.has(t.id));
+  };
+
   if (tracks.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+      <div className="flex-1 flex flex-col items-center justify-center text-app-text-muted bg-app-surface">
         <svg className="w-16 h-16 mb-4 opacity-30" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
         </svg>
         <p className="text-sm font-medium mb-1">No tracks</p>
-        <p className="text-xs text-slate-400">Add music to your library to get started</p>
+        <p className="text-xs text-app-text-light">Add music to your library to get started</p>
       </div>
     );
   }
 
   return (
-    <div ref={tableRef} className="flex-1 flex flex-col overflow-hidden bg-white">
+    <div ref={tableRef} className="flex-1 flex flex-col overflow-hidden bg-app-surface">
       {/* Header */}
-      <div className="flex border-b border-slate-200 bg-slate-50 select-none">
+      <div className="flex border-b border-app-border bg-app-surface-dark select-none">
         {columns.map((column) => (
           <div
             key={column.id}
@@ -252,17 +224,16 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
           >
             <button
               onClick={() => handleSort(column.sortField)}
-              className={`flex-1 px-2 py-1.5 text-left text-[11px] font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors truncate ${
+              className={`flex-1 px-2 py-1.5 text-left text-[11px] font-semibold text-app-text-muted hover:text-app-text hover:bg-app-hover transition-colors truncate ${
                 column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : ''
               } ${column.sortField ? 'cursor-pointer' : 'cursor-default'}`}
             >
               {column.label}
               {renderSortIndicator(column.sortField)}
             </button>
-            {/* Resize handle */}
             <div
               onMouseDown={(e) => handleColumnResize(column.id, e)}
-              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-400 z-10"
+              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-app-accent z-10"
             />
           </div>
         ))}
@@ -279,15 +250,16 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
               key={track.id}
               onClick={(e) => handleTrackClick(track, index, e)}
               onDoubleClick={() => handleTrackDoubleClick(track, index)}
+              onContextMenu={(e) => handleContextMenu(e, track)}
               className={`flex cursor-pointer transition-colors ${
                 isSelected
-                  ? 'bg-indigo-100'
+                  ? 'bg-app-accent-light'
                   : isPlaying
-                  ? 'bg-green-50'
+                  ? 'bg-app-selected'
                   : index % 2 === 0
-                  ? 'bg-white'
-                  : 'bg-slate-50'
-              } hover:bg-indigo-50`}
+                  ? 'bg-app-surface'
+                  : 'bg-app-surface-dark'
+              } hover:bg-app-hover`}
             >
               {columns.map((column) => (
                 <div
@@ -304,6 +276,20 @@ export function ColumnTrackList({ tracks, onTrackSelect }: ColumnTrackListProps)
           );
         })}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          track={contextMenu.track}
+          tracks={selectedTrackIds.size > 1 ? getSelectedTracks() : undefined}
+          albumName={contextMenu.track.album}
+          artistName={contextMenu.track.artist}
+          onClose={() => setContextMenu(null)}
+          onRescanArtwork={onRescanArtwork}
+        />
+      )}
     </div>
   );
 }

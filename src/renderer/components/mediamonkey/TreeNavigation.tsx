@@ -35,13 +35,13 @@ function TreeItem({
           }
           onClick?.();
         }}
-        className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-indigo-50 transition-colors ${
-          isActive ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-700'
+        className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-app-hover transition-colors ${
+          isActive ? 'bg-app-accent-light text-app-accent font-medium' : 'text-app-text-muted'
         }`}
         style={{ paddingLeft: `${8 + indent * 16}px` }}
       >
         {hasChildren && (
-          <span className="w-3 h-3 flex items-center justify-center text-slate-400">
+          <span className="w-3 h-3 flex items-center justify-center text-app-text-light">
             {expanded ? (
               <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 12 12">
                 <path d="M2 4l4 4 4-4z"/>
@@ -57,7 +57,7 @@ function TreeItem({
         <span className="w-4 h-4 flex items-center justify-center">{icon}</span>
         <span className="flex-1 text-left truncate">{label}</span>
         {count !== undefined && (
-          <span className="text-slate-400 text-[10px]">{count}</span>
+          <span className="text-app-text-light text-[10px]">{count}</span>
         )}
       </button>
       {hasChildren && expanded && (
@@ -105,10 +105,10 @@ export function TreeNavigation() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white border-r border-slate-200">
+    <div className="h-full flex flex-col bg-app-surface-dark border-r border-app-border">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Media Library</span>
+      <div className="px-3 py-2 border-b border-app-border">
+        <span className="text-xs font-semibold text-app-text-muted uppercase tracking-wide">Media Library</span>
       </div>
 
       {/* Navigation Tree */}
@@ -130,7 +130,7 @@ export function TreeNavigation() {
         <TreeItem
           label="Music Library"
           icon={
-            <svg className="w-3.5 h-3.5 text-indigo-500" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 text-app-accent" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
             </svg>
           }
@@ -140,7 +140,7 @@ export function TreeNavigation() {
           <TreeItem
             label="Artists"
             icon={
-              <svg className="w-3.5 h-3.5 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-purple-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
               </svg>
             }
@@ -157,7 +157,7 @@ export function TreeNavigation() {
               <TreeItem
                 key={artist.name}
                 label={artist.name}
-                icon={<span className="text-slate-400">-</span>}
+                icon={<span className="text-app-text-light">-</span>}
                 count={artist.trackCount}
                 isActive={selectedArtist === artist.name}
                 onClick={() => {
@@ -168,7 +168,7 @@ export function TreeNavigation() {
               />
             ))}
             {artists.length > 50 && (
-              <div className="px-8 py-1 text-[10px] text-slate-400">
+              <div className="px-8 py-1 text-[10px] text-app-text-light">
                 +{artists.length - 50} more artists...
               </div>
             )}
@@ -178,7 +178,7 @@ export function TreeNavigation() {
           <TreeItem
             label="Albums"
             icon={
-              <svg className="w-3.5 h-3.5 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-app-accent" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
               </svg>
             }
@@ -192,7 +192,7 @@ export function TreeNavigation() {
           <TreeItem
             label="Songs"
             icon={
-              <svg className="w-3.5 h-3.5 text-cyan-500" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-cyan-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
               </svg>
             }
@@ -212,7 +212,7 @@ export function TreeNavigation() {
           <TreeItem
             label="Genres"
             icon={
-              <svg className="w-3.5 h-3.5 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-pink-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
               </svg>
             }
@@ -226,7 +226,7 @@ export function TreeNavigation() {
               <TreeItem
                 key={genre.name}
                 label={genre.name}
-                icon={<span className="text-slate-400">-</span>}
+                icon={<span className="text-app-text-light">-</span>}
                 count={genre.trackCount}
                 isActive={selectedGenre === genre.name}
                 onClick={() => {
@@ -245,7 +245,7 @@ export function TreeNavigation() {
           <TreeItem
             label="Years"
             icon={
-              <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
               </svg>
             }
@@ -259,7 +259,7 @@ export function TreeNavigation() {
               <TreeItem
                 key={yearInfo.year}
                 label={String(yearInfo.year)}
-                icon={<span className="text-slate-400">-</span>}
+                icon={<span className="text-app-text-light">-</span>}
                 count={yearInfo.trackCount}
                 isActive={selectedYear === yearInfo.year}
                 onClick={() => {
@@ -276,12 +276,12 @@ export function TreeNavigation() {
         </TreeItem>
 
         {/* Playlists */}
-        <div className="mt-2 pt-2 border-t border-slate-200">
+        <div className="mt-2 pt-2 border-t border-app-border">
           <div className="flex items-center justify-between px-3 py-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Playlists</span>
+            <span className="text-xs font-semibold text-app-text-muted uppercase tracking-wide">Playlists</span>
             <button
               onClick={handleCreatePlaylist}
-              className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+              className="p-1 text-app-text-light hover:text-app-accent transition-colors"
               title="Create Playlist"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -294,7 +294,7 @@ export function TreeNavigation() {
               key={playlist.id}
               label={playlist.name}
               icon={
-                <svg className="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/>
                 </svg>
               }
@@ -304,7 +304,7 @@ export function TreeNavigation() {
             />
           ))}
           {playlists.length === 0 && (
-            <div className="px-3 py-2 text-[10px] text-slate-400 italic">
+            <div className="px-3 py-2 text-[10px] text-app-text-light italic">
               No playlists yet
             </div>
           )}
