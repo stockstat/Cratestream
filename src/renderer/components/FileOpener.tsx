@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { useLibraryStore } from '../store/libraryStore';
 import { usePlayerStore } from '../store/playerStore';
 import type { Track } from '../types';
@@ -13,17 +13,22 @@ function generateId(): string {
 }
 
 export function FileOpener({ variant = 'modern' }: FileOpenerProps) {
-  const { addTracks, setScanning, setScanProgress } = useLibraryStore();
+  const { addTracks, setScanning, setScanProgress, isScanning } = useLibraryStore();
   const { setQueue, queue } = usePlayerStore();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
+  const abortController = useRef<AbortController | null>(null);
 
   const handleOpenFiles = useCallback(async () => {
-    if (!window.electronAPI) return;
+    if (!window.electronAPI || isScanning || isLoading) {
+      console.log('[FileOpener] Already scanning, please wait...');
+      return;
+    }
 
     const filePaths = await window.electronAPI.openFile();
     if (!filePaths || filePaths.length === 0) return;
 
+    console.log('[FileOpener] Opening files:', filePaths.length);
     setIsLoading(true);
     setScanning(true);
     setLoadingText(`Scanning ${filePaths.length} file${filePaths.length > 1 ? 's' : ''}...`);
@@ -51,35 +56,49 @@ export function FileOpener({ variant = 'modern' }: FileOpenerProps) {
         };
       });
 
+      console.log('[FileOpener] Adding tracks:', newTracks.length);
       addTracks(newTracks);
 
       // If no tracks in queue, start playing
       if (queue.length === 0 && newTracks.length > 0) {
         setQueue(newTracks, 0);
       }
+
+      setLoadingText(`Added ${newTracks.length} track${newTracks.length > 1 ? 's' : ''}`);
+      setTimeout(() => setLoadingText(''), 2000);
     } catch (error) {
-      console.error('Error loading files:', error);
+      console.error('[FileOpener] Error loading files:', error);
+      setLoadingText('Error loading files');
+      setTimeout(() => setLoadingText(''), 2000);
     } finally {
+      console.log('[FileOpener] Files scan complete');
       setIsLoading(false);
       setScanning(false);
       setScanProgress(0);
-      setLoadingText('');
     }
-  }, [addTracks, setQueue, queue.length, setScanning, setScanProgress]);
+  }, [addTracks, setQueue, queue.length, setScanning, setScanProgress, isScanning, isLoading]);
 
   const handleOpenFolder = useCallback(async () => {
-    if (!window.electronAPI) return;
+    if (!window.electronAPI || isScanning || isLoading) {
+      console.log('[FileOpener] Already scanning, please wait...');
+      return;
+    }
 
     const folderPath = await window.electronAPI.openFolder();
     if (!folderPath) return;
 
+    console.log('[FileOpener] Scanning folder:', folderPath);
+    abortController.current = new AbortController();
+    
     setIsLoading(true);
     setScanning(true);
+    setScanProgress(0);
     setLoadingText('Scanning folder...');
 
     try {
       // Recursively scan folder for audio files
       const audioFiles = await window.electronAPI.scanFolder(folderPath);
+      console.log('[FileOpener] Found audio files:', audioFiles.length);
 
       if (audioFiles.length === 0) {
         setLoadingText('No audio files found');
@@ -90,14 +109,22 @@ export function FileOpener({ variant = 'modern' }: FileOpenerProps) {
       setLoadingText(`Found ${audioFiles.length} files, reading metadata...`);
 
       // Parse metadata in batches to show progress
-      const batchSize = 20;
+      const batchSize = 10; // Smaller batches for better responsiveness
       const newTracks: Track[] = [];
 
       for (let i = 0; i < audioFiles.length; i += batchSize) {
+        // Check if aborted
+        if (abortController.current?.signal.aborted) {
+          console.log('[FileOpener] Scan aborted');
+          break;
+        }
+
         const batch = audioFiles.slice(i, i + batchSize);
-        const progress = Math.round((i / audioFiles.length) * 100);
+        const progress = Math.round(((i + batch.length) / audioFiles.length) * 100);
         setScanProgress(progress);
-        setLoadingText(`Reading metadata... ${progress}% (${i}/${audioFiles.length})`);
+        setLoadingText(`Reading metadata... ${progress}% (${i + batch.length}/${audioFiles.length})`);
+
+        console.log(`[FileOpener] Processing batch ${i / batchSize + 1}, progress: ${progress}%`);
 
         const metadataResults = await window.electronAPI.parseMetadataMultiple(batch);
 
@@ -119,26 +146,42 @@ export function FileOpener({ variant = 'modern' }: FileOpenerProps) {
             format: metadata?.format || 'AUDIO',
           });
         });
+
+        // Add tracks incrementally for better UX
+        if (newTracks.length >= batchSize * 5) {
+          console.log('[FileOpener] Adding batch of', newTracks.length, 'tracks');
+          addTracks([...newTracks]);
+          newTracks.length = 0; // Clear array
+        }
       }
 
-      addTracks(newTracks);
-
-      if (queue.length === 0 && newTracks.length > 0) {
-        setQueue(newTracks, 0);
+      // Add remaining tracks
+      if (newTracks.length > 0) {
+        console.log('[FileOpener] Adding final', newTracks.length, 'tracks');
+        addTracks(newTracks);
       }
 
-      setLoadingText(`Added ${newTracks.length} tracks`);
+      if (queue.length === 0) {
+        const allTracks = useLibraryStore.getState().tracks;
+        if (allTracks.length > 0) {
+          setQueue(allTracks, 0);
+        }
+      }
+
+      setLoadingText(`Added ${audioFiles.length} tracks`);
       setTimeout(() => setLoadingText(''), 2000);
     } catch (error) {
-      console.error('Error scanning folder:', error);
+      console.error('[FileOpener] Error scanning folder:', error);
       setLoadingText('Error scanning folder');
       setTimeout(() => setLoadingText(''), 2000);
     } finally {
+      console.log('[FileOpener] Folder scan complete');
       setIsLoading(false);
       setScanning(false);
       setScanProgress(0);
+      abortController.current = null;
     }
-  }, [addTracks, setQueue, queue.length, setScanning, setScanProgress]);
+  }, [addTracks, setQueue, queue.length, setScanning, setScanProgress, isScanning, isLoading]);
 
   if (variant === 'winamp') {
     return (
@@ -171,7 +214,7 @@ export function FileOpener({ variant = 'modern' }: FileOpenerProps) {
       <div className="flex items-center gap-2">
         <button
           onClick={handleOpenFiles}
-          disabled={isLoading}
+          disabled={isLoading || isScanning}
           className="flex items-center gap-2 px-4 py-2 bg-app-accent hover:bg-app-accent-hover text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
@@ -188,8 +231,8 @@ export function FileOpener({ variant = 'modern' }: FileOpenerProps) {
         </button>
         <button
           onClick={handleOpenFolder}
-          disabled={isLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-app-surface-light hover:bg-app-surface text-app-text rounded-lg transition-colors text-sm font-medium border border-app-surface-light disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isLoading || isScanning}
+          className="flex items-center gap-2 px-4 py-2 bg-app-surface-light hover:bg-app-hover text-app-text rounded-lg transition-colors text-sm font-medium border border-app-border disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">

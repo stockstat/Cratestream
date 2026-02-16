@@ -1,82 +1,92 @@
-// Cloud Provider OAuth Configuration
-// Users need to create their own apps and add credentials
+// Cloud provider OAuth configuration
 
-export interface CloudProviderConfig {
+export interface ProviderConfig {
   clientId: string;
   redirectUri: string;
-  scopes: string[];
   authUrl: string;
   tokenUrl: string;
+  scopes: string[];
 }
 
-// Dropbox Configuration
-// Create app at: https://www.dropbox.com/developers/apps
-export const DROPBOX_CONFIG: CloudProviderConfig = {
-  clientId: process.env.VITE_DROPBOX_CLIENT_ID || '',
-  redirectUri: 'http://localhost:5173/auth/dropbox/callback',
-  scopes: ['files.content.read', 'files.metadata.read', 'account_info.read'],
-  authUrl: 'https://www.dropbox.com/oauth2/authorize',
-  tokenUrl: 'https://api.dropboxapi.com/oauth2/token',
-};
-
-// Google Drive Configuration
-// Create app at: https://console.cloud.google.com
-export const GOOGLE_DRIVE_CONFIG: CloudProviderConfig = {
-  clientId: process.env.VITE_GOOGLE_CLIENT_ID || '',
-  redirectUri: 'http://localhost:5173/auth/google/callback',
-  scopes: [
-    'https://www.googleapis.com/auth/drive.readonly',
-    'https://www.googleapis.com/auth/userinfo.email',
-  ],
-  authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-  tokenUrl: 'https://oauth2.googleapis.com/token',
-};
-
-// OneDrive Configuration
-// Create app at: https://portal.azure.com
-export const ONEDRIVE_CONFIG: CloudProviderConfig = {
-  clientId: process.env.VITE_ONEDRIVE_CLIENT_ID || '',
-  redirectUri: 'http://localhost:5173/auth/onedrive/callback',
-  scopes: ['Files.Read', 'Files.Read.All', 'User.Read', 'offline_access'],
-  authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-  tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-};
-
-export function getProviderConfig(provider: string): CloudProviderConfig | null {
+// Get Dropbox configuration
+export function getProviderConfig(provider: string): ProviderConfig | null {
   switch (provider) {
     case 'dropbox':
-      return DROPBOX_CONFIG;
+      return {
+        clientId: import.meta.env.VITE_DROPBOX_CLIENT_ID || '',
+        redirectUri: import.meta.env.VITE_DROPBOX_REDIRECT_URI || 'http://localhost:5173/dropbox',
+        authUrl: 'https://www.dropbox.com/oauth2/authorize',
+        tokenUrl: 'https://api.dropboxapi.com/oauth2/token',
+        scopes: ['files.metadata.read', 'files.content.read'],
+      };
+
     case 'google-drive':
-      return GOOGLE_DRIVE_CONFIG;
+      return {
+        clientId: import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID || '',
+        redirectUri: import.meta.env.VITE_GOOGLE_DRIVE_REDIRECT_URI || 'http://localhost:5173/google',
+        authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+        tokenUrl: 'https://oauth2.googleapis.com/token',
+        scopes: [
+          'https://www.googleapis.com/auth/drive.readonly',
+          'https://www.googleapis.com/auth/userinfo.email',
+        ],
+      };
+
     case 'onedrive':
-      return ONEDRIVE_CONFIG;
+      return {
+        clientId: import.meta.env.VITE_ONEDRIVE_CLIENT_ID || '',
+        redirectUri: import.meta.env.VITE_ONEDRIVE_REDIRECT_URI || 'http://localhost:5173/onedrive',
+        authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+        tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        scopes: ['Files.Read', 'User.Read', 'offline_access'],
+      };
+
     default:
       return null;
   }
 }
 
-// Generate random state for CSRF protection
+// Generate random state for OAuth
 export function generateState(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return Math.random().toString(36).substring(2, 15) + 
+         Math.random().toString(36).substring(2, 15);
 }
 
-// Generate PKCE code verifier and challenge
+// Generate PKCE challenge
 export async function generatePKCE(): Promise<{ verifier: string; challenge: string }> {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  const verifier = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  const verifier = generateRandomString(128);
+  const challenge = await sha256(verifier);
+  return { verifier, challenge };
+}
 
-  // Create SHA-256 hash for challenge
+function generateRandomString(length: number): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let result = '';
+  const randomValues = new Uint8Array(length);
+  crypto.getRandomValues(randomValues);
+  
+  for (let i = 0; i < length; i++) {
+    result += chars[randomValues[i] % chars.length];
+  }
+  
+  return result;
+}
+
+async function sha256(plain: string): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = new Uint8Array(hashBuffer);
-  const challenge = btoa(String.fromCharCode(...hashArray))
+  const data = encoder.encode(plain);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return base64URLEncode(hash);
+}
+
+function base64URLEncode(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
-    .replace(/=+$/, '');
-
-  return { verifier, challenge };
+    .replace(/=/g, '');
 }

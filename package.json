@@ -1,27 +1,37 @@
 {
-  "name": "cloud-music-player",
-  "version": "0.1.0",
-  "description": "Cloud music streaming app with Winamp-style skin",
+  "name": "cratestream",
+  "version": "1.0.0",
+  "description": "CrateStream - The vault of 90s hip-hop",
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "vite",
     "dev:main": "tsc -p tsconfig.main.json && electron .",
+    "dev:web": "vite --config vite.config.ts",
     "build": "npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json",
+    "build:web": "vite build --config vite.config.ts",
     "start": "electron .",
-    "package": "npm run build && electron-builder",
-    "package:win": "npm run build && electron-builder --win"
+    "build:win": "npm run build && electron-builder --win",
+    "build:win:portable": "npm run build && electron-builder --win portable",
+    "build:all": "npm run build && electron-builder --win --mac --linux"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.985.0",
+    "buffer": "^6.0.3",
+    "dropbox": "^10.34.0",
     "electron-store": "^8.1.0",
-    "music-metadata": "^7.14.0"
+    "firebase": "^12.9.0",
+    "music-metadata-browser": "^2.5.11",
+    "react-router-dom": "^7.13.0",
+    "react-window": "^2.2.6"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
+    "@types/react-window": "^1.8.8",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
@@ -36,9 +46,9 @@
     "zustand": "^4.4.7"
   },
   "build": {
-    "appId": "com.cloudmusicplayer.app",
-    "productName": "Cloud Music Player",
-    "copyright": "Copyright © 2024",
+    "appId": "com.cratestream.app",
+    "productName": "CrateStream",
+    "copyright": "Copyright © 2026",
     "directories": {
       "output": "release"
     },
@@ -49,39 +59,40 @@
     "extraResources": [
       {
         "from": "src/renderer/assets",
-        "to": "assets"
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
-      "icon": "build/icon.ico",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "mac": {
-      "target": ["dmg", "zip"],
-      "icon": "build/icon.icns",
-      "category": "public.app-category.music"
-    },
-    "linux": {
-      "target": ["AppImage", "deb"],
-      "icon": "build/icon.png",
-      "category": "Audio"
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Cloud Music Player"
+      "shortcutName": "CrateStream",
+      "deleteAppDataOnUninstall": false,
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
     }
   }
 }

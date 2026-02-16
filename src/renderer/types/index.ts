@@ -7,20 +7,24 @@ export interface Track {
   filePath: string;
   fileUrl?: string;
   artwork?: string;
+  artworkUrl?: string;
+  streamUrl?: string;
   genre?: string;
   year?: number;
   trackNumber?: number;
   bitrate?: number;
   sampleRate?: number;
   format?: string;
+  isDropbox?: boolean;   
+  dropboxLink?: string;     
 }
 
 export interface Playlist {
   id: string;
   name: string;
   tracks: Track[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 export type RepeatMode = 'off' | 'all' | 'one';

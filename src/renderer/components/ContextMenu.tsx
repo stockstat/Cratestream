@@ -25,6 +25,8 @@ export function ContextMenu({
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [submenuOpen, setSubmenuOpen] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
   const { playlists, addToPlaylist, createPlaylist } = useLibraryStore();
 
   useEffect(() => {
@@ -36,7 +38,11 @@ export function ContextMenu({
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (showCreateDialog) {
+          setShowCreateDialog(false);
+        } else {
+          onClose();
+        }
       }
     };
 
@@ -47,7 +53,7 @@ export function ContextMenu({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [onClose]);
+  }, [onClose, showCreateDialog]);
 
   // Adjust position if menu would go off screen
   const adjustedX = Math.min(x, window.innerWidth - 200);
@@ -55,17 +61,23 @@ export function ContextMenu({
 
   const handleAddToPlaylist = (playlistId: string) => {
     const tracksToAdd = tracks || (track ? [track] : []);
-    tracksToAdd.forEach(t => addToPlaylist(playlistId, t));
+    const trackIds = tracksToAdd.map(t => t.id);
+    addToPlaylist(playlistId, trackIds);
     onClose();
   };
 
   const handleCreatePlaylist = () => {
-    const name = prompt('Enter playlist name:');
-    if (name && name.trim()) {
-      const playlist = createPlaylist(name.trim());
+    setShowCreateDialog(true);
+    setNewPlaylistName('');
+  };
+
+  const handleConfirmCreate = () => {
+    if (newPlaylistName && newPlaylistName.trim()) {
       const tracksToAdd = tracks || (track ? [track] : []);
-      tracksToAdd.forEach(t => addToPlaylist(playlist.id, t));
+      const trackIds = tracksToAdd.map(t => t.id);
+      createPlaylist(newPlaylistName.trim(), trackIds);
     }
+    setShowCreateDialog(false);
     onClose();
   };
 
@@ -76,6 +88,44 @@ export function ContextMenu({
   };
 
   const tracksCount = tracks?.length || (track ? 1 : 0);
+
+  // Create Playlist Dialog
+  if (showCreateDialog) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-app-surface border border-app-border rounded-lg p-4 w-96 shadow-xl">
+          <h3 className="text-sm font-semibold text-app-text mb-3">Create New Playlist</h3>
+          <input
+            type="text"
+            value={newPlaylistName}
+            onChange={(e) => setNewPlaylistName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleConfirmCreate();
+              if (e.key === 'Escape') setShowCreateDialog(false);
+            }}
+            placeholder="Playlist name..."
+            autoFocus
+            className="w-full px-3 py-2 text-sm bg-app-surface-dark border border-app-border rounded text-app-text placeholder-app-text-light focus:outline-none focus:border-app-accent"
+          />
+          <div className="flex gap-2 mt-4 justify-end">
+            <button
+              onClick={() => setShowCreateDialog(false)}
+              className="px-4 py-1.5 text-xs text-app-text-muted hover:text-app-text border border-app-border rounded hover:bg-app-hover transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmCreate}
+              disabled={!newPlaylistName.trim()}
+              className="px-4 py-1.5 text-xs text-white bg-app-accent hover:bg-app-accent-hover rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

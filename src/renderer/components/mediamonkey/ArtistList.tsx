@@ -16,23 +16,23 @@ export function ArtistList({ artists, onArtistClick }: ArtistListProps) {
 
   if (artists.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+      <div className="flex-1 flex flex-col items-center justify-center text-app-text-light bg-app-surface">
         <svg className="w-16 h-16 mb-4 opacity-30" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
         </svg>
         <p className="text-sm font-medium mb-1">No artists</p>
-        <p className="text-xs text-slate-400">Add music to your library to see artists</p>
+        <p className="text-xs text-app-text-muted">Add music to your library to see artists</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-app-surface">
       {/* Search Header */}
-      <div className="p-3 border-b border-slate-200 bg-slate-50">
+      <div className="p-3 border-b border-app-border bg-app-surface-dark">
         <div className="relative">
           <svg
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-app-text-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -44,10 +44,10 @@ export function ArtistList({ artists, onArtistClick }: ArtistListProps) {
             placeholder="Filter artists..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-app-surface border border-app-border rounded text-app-text placeholder-app-text-muted focus:outline-none focus:border-app-accent focus:ring-1 focus:ring-app-accent"
           />
         </div>
-        <div className="mt-2 text-[10px] text-slate-400">
+        <div className="mt-2 text-[10px] text-app-text-muted">
           {filteredArtists.length} artist{filteredArtists.length !== 1 ? 's' : ''}
         </div>
       </div>
@@ -60,14 +60,14 @@ export function ArtistList({ artists, onArtistClick }: ArtistListProps) {
             onClick={() => onArtistClick(artist)}
             className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
               selectedArtist === artist.name
-                ? 'bg-indigo-100'
+                ? 'bg-app-accent'
                 : index % 2 === 0
-                ? 'bg-white hover:bg-slate-50'
-                : 'bg-slate-50 hover:bg-slate-100'
+                ? 'bg-app-surface hover:bg-app-hover'
+                : 'bg-app-surface-dark hover:bg-app-hover'
             }`}
           >
             {/* Artist Icon/Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-app-accent to-orange-700 flex items-center justify-center flex-shrink-0">
               <span className="text-white font-semibold text-sm">
                 {artist.name.charAt(0).toUpperCase()}
               </span>
@@ -75,15 +75,15 @@ export function ArtistList({ artists, onArtistClick }: ArtistListProps) {
 
             {/* Artist Info */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-slate-700 truncate">{artist.name}</p>
-              <p className="text-[10px] text-slate-400">
+              <p className="text-sm text-app-text truncate">{artist.name}</p>
+              <p className="text-[10px] text-app-text-muted">
                 {artist.albumCount} album{artist.albumCount !== 1 ? 's' : ''} - {artist.trackCount} track{artist.trackCount !== 1 ? 's' : ''}
               </p>
             </div>
 
             {/* Arrow */}
             <svg
-              className="w-4 h-4 text-slate-300"
+              className="w-4 h-4 text-app-text-light"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -107,12 +107,12 @@ export function GenreList({ genres, onGenreClick }: GenreListProps) {
 
   if (genres.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+      <div className="flex-1 flex flex-col items-center justify-center text-app-text-light bg-app-surface">
         <svg className="w-16 h-16 mb-4 opacity-30" fill="currentColor" viewBox="0 0 24 24">
           <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
         </svg>
         <p className="text-sm font-medium mb-1">No genres</p>
-        <p className="text-xs text-slate-400">Add music with genre tags to see genres</p>
+        <p className="text-xs text-app-text-muted">Add music with genre tags to see genres</p>
       </div>
     );
   }
@@ -127,14 +127,14 @@ export function GenreList({ genres, onGenreClick }: GenreListProps) {
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-4">
+    <div className="flex-1 overflow-y-auto bg-app-surface p-4">
       <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
         {genres.map((genre, index) => (
           <button
             key={genre.name}
             onClick={() => onGenreClick(genre.name)}
             className={`p-4 rounded-lg text-left transition-all hover:scale-[1.02] hover:shadow-md ${
-              selectedGenre === genre.name ? 'ring-2 ring-indigo-500' : ''
+              selectedGenre === genre.name ? 'ring-2 ring-app-accent' : ''
             } bg-gradient-to-br ${genreColors[index % genreColors.length]}`}
           >
             <p className="text-sm font-semibold text-white truncate">{genre.name}</p>
@@ -158,18 +158,18 @@ export function YearList({ years, onYearClick }: YearListProps) {
 
   if (years.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+      <div className="flex-1 flex flex-col items-center justify-center text-app-text-light bg-app-surface">
         <svg className="w-16 h-16 mb-4 opacity-30" fill="currentColor" viewBox="0 0 24 24">
           <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
         </svg>
         <p className="text-sm font-medium mb-1">No years</p>
-        <p className="text-xs text-slate-400">Add music with year tags to see years</p>
+        <p className="text-xs text-app-text-muted">Add music with year tags to see years</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-4">
+    <div className="flex-1 overflow-y-auto bg-app-surface p-4">
       <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
         {years.map((yearInfo) => (
           <button
@@ -177,12 +177,12 @@ export function YearList({ years, onYearClick }: YearListProps) {
             onClick={() => onYearClick(yearInfo.year)}
             className={`p-3 rounded-lg text-center transition-colors ${
               selectedYear === yearInfo.year
-                ? 'bg-indigo-100 border-2 border-indigo-400'
-                : 'bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                ? 'bg-app-accent border-2 border-app-accent-hover'
+                : 'bg-app-surface-dark border border-app-border hover:bg-app-hover hover:border-app-accent'
             }`}
           >
-            <p className="text-lg font-bold text-slate-700">{yearInfo.year}</p>
-            <p className="text-[10px] text-slate-400">
+            <p className="text-lg font-bold text-app-text">{yearInfo.year}</p>
+            <p className="text-[10px] text-app-text-muted">
               {yearInfo.trackCount} track{yearInfo.trackCount !== 1 ? 's' : ''}
             </p>
           </button>

@@ -38,6 +38,11 @@ export function useAudioPlayer() {
 
     const handleError = (e: Event) => {
       console.error('Audio playback error:', e);
+      const audioElement = e.target as HTMLAudioElement;
+      if (audioElement.error) {
+        console.error('Error code:', audioElement.error.code);
+        console.error('Error message:', audioElement.error.message);
+      }
       setIsPlaying(false);
     };
 
@@ -59,15 +64,39 @@ export function useAudioPlayer() {
     const audio = audioRef.current;
     if (!audio || !currentTrack) return;
 
-    // Create file URL for local files
-    const url = currentTrack.fileUrl || `file://${currentTrack.filePath}`;
+    // Determine URL based on source
+let url: string;
+if (currentTrack.isDropbox) {
+  // Dropbox file - use temporary link or get new one
+  if (currentTrack.dropboxLink) {
+    url = currentTrack.dropboxLink;
+  } else {
+    // This shouldn't happen, but fallback to getting new link
+    console.warn('[Audio] Dropbox track missing temporary link');
+    url = currentTrack.filePath; // Will fail, but won't crash
+  }
+} else if (currentTrack.fileUrl) {
+  // Remote URL (for other cloud services)
+  url = currentTrack.fileUrl;
+} else {
+  // Local file - use custom protocol
+  const encodedPath = encodeURIComponent(currentTrack.filePath);
+  url = `local-music://${encodedPath}`;
+}
+    
+    console.log('[Audio] Loading track:', currentTrack.title);
+    console.log('[Audio] URL:', url);
+    
     audio.src = url;
     audio.load();
 
     if (isPlaying) {
-      audio.play().catch(console.error);
+      audio.play().catch(err => {
+        console.error('[Audio] Play error:', err);
+        setIsPlaying(false);
+      });
     }
-  }, [currentTrack?.id]);
+  }, [currentTrack?.id, isPlaying]);
 
   // Handle play/pause
   useEffect(() => {
@@ -75,11 +104,17 @@ export function useAudioPlayer() {
     if (!audio || !currentTrack) return;
 
     if (isPlaying) {
-      audio.play().catch(console.error);
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.error('[Audio] Play error:', err);
+          setIsPlaying(false);
+        });
+      }
     } else {
       audio.pause();
     }
-  }, [isPlaying, currentTrack]);
+  }, [isPlaying, currentTrack, setIsPlaying]);
 
   // Handle volume changes
   useEffect(() => {

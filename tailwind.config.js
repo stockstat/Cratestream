@@ -1,40 +1,32 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    "./src/renderer/**/*.{js,ts,jsx,tsx}",
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
       colors: {
-        // MediaMonkey-style dark theme with orange accents
-        'app-bg': '#1e1e1e',
-        'app-surface': '#2d2d30',
-        'app-surface-light': '#3e3e42',
-        'app-surface-dark': '#252526',
-        'app-accent': '#e87f00',
-        'app-accent-hover': '#ff9420',
-        'app-accent-light': '#3d3020',
-        'app-text': '#ffffff',
-        'app-text-muted': '#a0a0a0',
-        'app-text-light': '#707070',
-        'app-border': '#3e3e42',
-        'app-border-dark': '#2d2d30',
-
-        // Player bar
-        'player-bg': '#1a1a1a',
+        // Dark theme inspired by MediaMonkey
+        'app-bg': '#0a0a0a',
+        'app-surface': '#121212',
+        'app-surface-dark': '#0d0d0d',
+        'app-surface-light': '#1a1a1a',
+        'app-hover': '#252525',
+        'app-border': '#2a2a2a',
+        'app-text': '#e0e0e0',
+        'app-text-muted': '#9e9e9e',
+        'app-text-light': '#757575',
+        'app-accent': '#ff6b35',
+        'app-accent-hover': '#ff8555',
+        'player-bg': '#0d0d0d',
         'player-text': '#ffffff',
-        'player-muted': '#888888',
-
-        // Selection/highlight
-        'app-selected': '#3d3d20',
-        'app-hover': '#3a3a3a',
-      },
-      fontFamily: {
-        'sans': ['Segoe UI', 'Inter', 'system-ui', 'sans-serif'],
+        'player-muted': '#808080',
       },
       boxShadow: {
         'soft': '0 2px 8px rgba(0, 0, 0, 0.3)',
         'medium': '0 4px 12px rgba(0, 0, 0, 0.4)',
+        'hard': '0 8px 24px rgba(0, 0, 0, 0.5)',
       },
     },
   },

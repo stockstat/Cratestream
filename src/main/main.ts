@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as mm from 'music-metadata';
+import { protocol, net } from 'electron';
 
 // Cache for artwork data URLs
 const artworkCache = new Map<string, string>();
@@ -409,7 +410,21 @@ ipcMain.handle('metadata:rescanArtwork', async (_, filePath: string): Promise<st
 });
 
 // App lifecycle
-app.whenReady().then(createWindow);
+// Register protocol scheme BEFORE app is ready
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-music', privileges: { secure: true, supportFetchAPI: true, stream: true } }
+]);
+
+app.whenReady().then(() => {
+  // Register the protocol handler
+  protocol.handle('local-music', (request) => {
+    const url = request.url.replace('local-music://', '');
+    const decodedPath = decodeURIComponent(url);
+    return net.fetch(`file://${decodedPath}`);
+  });
+
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -417,8 +432,3 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
-});

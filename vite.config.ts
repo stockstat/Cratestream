@@ -1,21 +1,45 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-export default defineConfig({
-  plugins: [react()],
-  base: './',
-  root: 'src/renderer',
-  build: {
-    outDir: '../../dist/renderer',
-    emptyOutDir: true,
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src/renderer'),
+export default defineConfig(({ mode }) => {
+  // Load env file based on `mode` in the current working directory.
+  const env = loadEnv(mode, process.cwd(), '')
+  
+  return {
+    plugins: [react()],
+    base: './',
+    root: '.', // Changed to project root for web version
+    build: {
+      outDir: 'dist-web', // Separate output for web
+      emptyOutDir: true,
+      rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index-web.html') // Use web HTML entry
+        }
+      }
     },
-  },
-  server: {
-    port: 5173,
-  },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, 'src'),
+        buffer: 'buffer/',
+      },
+    },
+    server: {
+      port: 5173,
+    },
+    define: {
+      // Expose env variables to the client
+      'import.meta.env.VITE_DROPBOX_APP_KEY': JSON.stringify(env.VITE_DROPBOX_APP_KEY),
+      // Add global Buffer for browser
+      global: 'globalThis',
+    },
+    optimizeDeps: {
+      esbuildOptions: {
+        define: {
+          global: 'globalThis',
+        },
+      },
+    },
+  }
 })

@@ -19,7 +19,8 @@ export function ProgressBar({ onSeek, variant = 'modern' }: ProgressBarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState(0);
 
-  const progress = duration > 0 ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0;
+  // FIXED: Separate display progress to prevent jitter
+  const displayProgress = duration > 0 ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0;
 
   const handleSeek = useCallback((e: React.MouseEvent | MouseEvent) => {
     if (!progressRef.current || !duration) return;
@@ -46,7 +47,9 @@ export function ProgressBar({ onSeek, variant = 'modern' }: ProgressBarProps) {
 
     const handleMouseUp = (e: MouseEvent) => {
       const time = handleSeek(e);
-      if (time !== undefined) onSeek(time);
+      if (time !== undefined) {
+        onSeek(time);
+      }
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -71,11 +74,11 @@ export function ProgressBar({ onSeek, variant = 'modern' }: ProgressBarProps) {
         >
           <div
             className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#00aa00] to-[#00ff00]"
-            style={{ width: `${progress}%` }}
+            style={{ width: `${displayProgress}%` }}
           />
           <div
             className="absolute top-1/2 -translate-y-1/2 w-[8px] h-[8px] bg-[#00ff00] border border-[#00aa00]"
-            style={{ left: `calc(${progress}% - 4px)` }}
+            style={{ left: `calc(${displayProgress}% - 4px)` }}
           />
         </div>
         <span className="text-[10px] text-[#00ff00] font-lcd w-10">
@@ -97,11 +100,11 @@ export function ProgressBar({ onSeek, variant = 'modern' }: ProgressBarProps) {
       >
         <div
           className="absolute top-0 left-0 h-full bg-app-accent rounded-full"
-          style={{ width: `${progress}%` }}
+          style={{ width: `${displayProgress}%` }}
         />
         <div
           className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ left: `calc(${progress}% - 6px)` }}
+          style={{ left: `calc(${displayProgress}% - 6px)` }}
         />
       </div>
       <span className="text-xs text-app-text-muted w-10 font-mono">
