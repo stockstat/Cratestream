@@ -103,8 +103,11 @@ export function AccountPage() {
   };
 
   if (!user) {
-    navigate('/');
-    return null;
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <p className="text-white">Please log in to view your account.</p>
+      </div>
+    );
   }
 
   return (
