@@ -1,182 +1,279 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 export function AccountPage() {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { subscription, hasActiveSubscription } = useSubscription();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
+  const handleCancelSubscription = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      
+      // Set subscription to cancel at end of period
+      await updateDoc(userRef, {
+        'subscription.cancelAtPeriodEnd': true,
+        'subscription.updatedAt': new Date().toISOString()
+      });
+
+      alert('Your subscription will be canceled at the end of the current billing period.');
+      setShowCancelConfirm(false);
+      
+      // Refresh the page to show updated status
+      window.location.reload();
+    } catch (error) {
+      console.error('Error canceling subscription:', error);
+      alert('Failed to cancel subscription. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleManageSubscription = () => {
-    // TODO: Redirect to Stripe customer portal
-    alert('Stripe Customer Portal integration coming next!');
+  const handleReactivateSubscription = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      
+      await updateDoc(userRef, {
+        'subscription.cancelAtPeriodEnd': false,
+        'subscription.updatedAt': new Date().toISOString()
+      });
+
+      alert('Your subscription has been reactivated!');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error reactivating subscription:', error);
+      alert('Failed to reactivate subscription. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const formatDate = (date: Date | null) => {
-    if (!date) return 'N/A';
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   };
 
+  const getStatusBadge = () => {
+    if (!subscription) return null;
+
+    if (subscription.status === 'trial') {
+      return (
+        <span className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-full text-sm font-bold border-2 border-blue-400/30">
+          FREE TRIAL
+        </span>
+      );
+    }
+
+    if (subscription.cancelAtPeriodEnd) {
+      return (
+        <span className="px-4 py-2 bg-orange-500/20 text-orange-400 rounded-full text-sm font-bold border-2 border-orange-400/30">
+          CANCELING
+        </span>
+      );
+    }
+
+    if (subscription.status === 'active') {
+      return (
+        <span className="px-4 py-2 bg-green-500/20 text-green-400 rounded-full text-sm font-bold border-2 border-green-400/30">
+          ACTIVE
+        </span>
+      );
+    }
+
+    return (
+      <span className="px-4 py-2 bg-red-500/20 text-red-400 rounded-full text-sm font-bold border-2 border-red-400/30">
+        EXPIRED
+      </span>
+    );
+  };
+
+  if (!user) {
+    navigate('/');
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800/50 backdrop-blur-lg border-b border-white/10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/player" className="text-xl font-bold text-white">
-            <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
-              CrateStream
-            </span>
-          </Link>
-          <Link 
-            to="/player"
-            className="text-sm text-gray-300 hover:text-white transition-colors"
+    <div className="min-h-screen bg-black text-white p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => navigate('/player')}
+            className="text-orange-400 hover:text-orange-300 mb-4 flex items-center gap-2"
           >
-            ← Back to Player
-          </Link>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Player
+          </button>
+          
+          <h1 className="text-5xl font-black text-orange-400 mb-2" style={{ fontFamily: 'Impact, sans-serif' }}>
+            ACCOUNT SETTINGS
+          </h1>
+          <p className="text-gray-400">{user.email}</p>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold text-white mb-8">Account Settings</h1>
-
-        <div className="space-y-6">
-          {/* Account Info */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 border border-white/20">
-            <h2 className="text-xl font-semibold text-white mb-4">Account Information</h2>
-            
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-400">Email</p>
-                <p className="text-white">{user?.email}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-400">Account ID</p>
-                <p className="text-white font-mono text-sm">{user?.uid.substring(0, 20)}...</p>
-              </div>
+        {/* Subscription Status Card */}
+        <div className="bg-zinc-900 border-2 border-orange-500/30 rounded-xl p-8 mb-6">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-black text-white mb-2" style={{ fontFamily: 'Impact, sans-serif' }}>
+                SUBSCRIPTION STATUS
+              </h2>
             </div>
+            {getStatusBadge()}
           </div>
 
-          {/* Subscription Info */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 border border-white/20">
-            <h2 className="text-xl font-semibold text-white mb-4">Subscription</h2>
-            
-            {hasActiveSubscription ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400">Status</p>
-                    <p className="text-white">
-                      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                        subscription.status === 'active' 
-                          ? 'bg-green-500/20 text-green-300'
-                          : subscription.status === 'trial'
-                          ? 'bg-yellow-500/20 text-yellow-300'
-                          : 'bg-red-500/20 text-red-300'
-                      }`}>
-                        {subscription.status === 'active' && '✓'}
-                        {subscription.status === 'trial' && '⏱'}
-                        {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
-                      </span>
-                    </p>
-                  </div>
-                  
-                  <div className="text-right">
-                    <p className="text-sm text-gray-400">Plan</p>
-                    <p className="text-white font-medium">
-                      {subscription.plan === 'monthly' && '$3/month'}
-                      {subscription.plan === 'annual' && '$30/year'}
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-400">
-                    {subscription.cancelAtPeriodEnd ? 'Expires on' : 'Next billing date'}
+          {subscription && (
+            <div className="space-y-4">
+              {/* Status Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-black/40 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-1">Plan</p>
+                  <p className="text-white font-bold text-lg">
+                    {subscription.status === 'trial' ? 'Free Trial' : 'Premium - $3/month'}
                   </p>
-                  <p className="text-white">{formatDate(subscription.currentPeriodEnd)}</p>
                 </div>
 
-                {subscription.cancelAtPeriodEnd && (
-                  <div className="p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
-                    <p className="text-yellow-200 text-sm">
-                      ⚠️ Your subscription will not renew. You'll have access until {formatDate(subscription.currentPeriodEnd)}.
-                    </p>
-                  </div>
-                )}
+                <div className="bg-black/40 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-1">
+                    {subscription.status === 'trial' ? 'Trial Ends' : 'Next Billing Date'}
+                  </p>
+                  <p className="text-white font-bold text-lg">
+                    {formatDate(subscription.currentPeriodEnd)}
+                  </p>
+                </div>
 
+                <div className="bg-black/40 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-1">Member Since</p>
+                  <p className="text-white font-bold text-lg">
+                    {formatDate(subscription.createdAt)}
+                  </p>
+                </div>
+
+                <div className="bg-black/40 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-1">Access Level</p>
+                  <p className="text-white font-bold text-lg">
+                    {hasActiveSubscription ? 'Full Access' : 'Limited'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Trial Info */}
+              {subscription.status === 'trial' && (
+                <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-4 mt-4">
+                  <p className="text-blue-400 text-sm">
+                    <strong>Free Trial:</strong> You have full access until {formatDate(subscription.currentPeriodEnd)}. 
+                    After that, subscribe for just $3/month to keep listening.
+                  </p>
+                </div>
+              )}
+
+              {/* Canceling Info */}
+              {subscription.cancelAtPeriodEnd && (
+                <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-4 mt-4">
+                  <p className="text-orange-400 text-sm">
+                    <strong>Subscription Canceling:</strong> Your subscription will end on {formatDate(subscription.currentPeriodEnd)}. 
+                    You'll have access until then.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="space-y-4">
+          {/* Cancel/Reactivate Subscription */}
+          {subscription && subscription.status === 'active' && !subscription.cancelAtPeriodEnd && (
+            <button
+              onClick={() => setShowCancelConfirm(true)}
+              className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-400 border-2 border-red-400/30 rounded-xl p-4 font-black transition-all"
+              style={{ fontFamily: 'Impact, sans-serif' }}
+            >
+              CANCEL SUBSCRIPTION
+            </button>
+          )}
+
+          {subscription && subscription.cancelAtPeriodEnd && (
+            <button
+              onClick={handleReactivateSubscription}
+              disabled={loading}
+              className="w-full bg-green-500/20 hover:bg-green-500/30 text-green-400 border-2 border-green-400/30 rounded-xl p-4 font-black transition-all disabled:opacity-50"
+              style={{ fontFamily: 'Impact, sans-serif' }}
+            >
+              {loading ? 'REACTIVATING...' : 'REACTIVATE SUBSCRIPTION'}
+            </button>
+          )}
+
+          {/* Upgrade from Trial */}
+          {subscription && subscription.status === 'trial' && (
+            <button
+              onClick={() => navigate('/subscribe')}
+              className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white border-2 border-orange-400/30 rounded-xl p-4 font-black transition-all"
+              style={{ fontFamily: 'Impact, sans-serif' }}
+            >
+              UPGRADE TO PREMIUM - $3/MONTH
+            </button>
+          )}
+
+          {/* Logout */}
+          <button
+            onClick={() => {
+              signOut();
+              navigate('/');
+            }}
+            className="w-full bg-zinc-800 hover:bg-zinc-700 text-gray-300 border-2 border-zinc-700 rounded-xl p-4 font-black transition-all"
+            style={{ fontFamily: 'Impact, sans-serif' }}
+          >
+            LOGOUT
+          </button>
+        </div>
+
+        {/* Cancel Confirmation Modal */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border-2 border-red-400/30 rounded-xl p-8 max-w-md w-full">
+              <h3 className="text-2xl font-black text-white mb-4" style={{ fontFamily: 'Impact, sans-serif' }}>
+                CANCEL SUBSCRIPTION?
+              </h3>
+              <p className="text-gray-300 mb-6">
+                Your subscription will remain active until {subscription && formatDate(subscription.currentPeriodEnd)}. 
+                After that, you'll lose access to the full library.
+              </p>
+              <div className="flex gap-4">
                 <button
-                  onClick={handleManageSubscription}
-                  className="w-full py-3 bg-white/10 border border-white/20 text-white rounded-lg hover:bg-white/20 transition-colors"
+                  onClick={handleCancelSubscription}
+                  disabled={loading}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-lg p-3 font-bold disabled:opacity-50"
                 >
-                  Manage Subscription
+                  {loading ? 'Canceling...' : 'Yes, Cancel'}
+                </button>
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg p-3 font-bold"
+                >
+                  Keep Subscription
                 </button>
               </div>
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-gray-300 mb-4">You don't have an active subscription.</p>
-                <Link
-                  to="/subscribe"
-                  className="inline-block px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-bold rounded-lg hover:from-orange-600 hover:to-yellow-600 transition-all"
-                >
-                  Subscribe Now
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Active Devices */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 border border-white/20">
-            <h2 className="text-xl font-semibold text-white mb-4">Active Devices</h2>
-            
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">This Device</p>
-                    <p className="text-sm text-gray-400">Chrome • Last active: Now</p>
-                  </div>
-                </div>
-                <span className="text-xs text-green-400 px-2 py-1 bg-green-500/20 rounded">Active</span>
-              </div>
-
-              <p className="text-sm text-gray-400 text-center py-4">
-                Device management coming soon! You'll be able to see all logged-in devices and log them out remotely.
-              </p>
             </div>
           </div>
-
-          {/* Danger Zone */}
-          <div className="bg-red-500/10 backdrop-blur-lg rounded-lg p-6 border border-red-500/30">
-            <h2 className="text-xl font-semibold text-red-300 mb-4">Danger Zone</h2>
-            
-            <div className="space-y-3">
-              <button
-                onClick={handleLogout}
-                className="w-full py-3 bg-red-500/20 border border-red-500 text-red-200 rounded-lg hover:bg-red-500/30 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
