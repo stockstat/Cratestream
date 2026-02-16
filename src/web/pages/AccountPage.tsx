@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { db } from '../firebase';
 
 export function AccountPage() {
   const navigate = useNavigate();
