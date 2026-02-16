@@ -11,11 +11,11 @@ export default defineConfig(({ mode }) => {
     base: './',
     root: '.', // Changed to project root for web version
     build: {
-      outDir: 'dist-web', // Separate output for web
+      outDir: 'dist', // Changed from dist-web to dist for Vercel
       emptyOutDir: true,
       rollupOptions: {
         input: {
-          main: path.resolve(__dirname, 'index-web.html') // Use web HTML entry
+          main: path.resolve(__dirname, 'index.html') // Changed from index-web.html to index.html
         }
       }
     },
