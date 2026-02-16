@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export function AccountPage() {
@@ -12,6 +12,36 @@ export function AccountPage() {
   const [loading, setLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+  const handleActivateTrial = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+      
+      await setDoc(userRef, {
+        subscription: {
+          status: 'trial',
+          currentPeriodEnd: trialEnd.toISOString(),
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+          cancelAtPeriodEnd: false
+        }
+      }, { merge: true });
+
+      alert('7-day free trial activated! Refreshing...');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error activating trial:', error);
+      alert('Failed to activate trial. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancelSubscription = async () => {
     if (!user) return;
     
@@ -19,7 +49,6 @@ export function AccountPage() {
     try {
       const userRef = doc(db, 'users', user.uid);
       
-      // Set subscription to cancel at end of period
       await updateDoc(userRef, {
         'subscription.cancelAtPeriodEnd': true,
         'subscription.updatedAt': new Date().toISOString()
@@ -27,8 +56,6 @@ export function AccountPage() {
 
       alert('Your subscription will be canceled at the end of the current billing period.');
       setShowCancelConfirm(false);
-      
-      // Refresh the page to show updated status
       window.location.reload();
     } catch (error) {
       console.error('Error canceling subscription:', error);
@@ -61,7 +88,11 @@ export function AccountPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return 'Invalid Date';
+    }
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -142,7 +173,7 @@ export function AccountPage() {
             {getStatusBadge()}
           </div>
 
-          {subscription && (
+          {subscription ? (
             <div className="space-y-4">
               {/* Status Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -197,12 +228,30 @@ export function AccountPage() {
                 </div>
               )}
             </div>
+          ) : (
+            <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-4">
+              <p className="text-red-400 text-sm mb-4">
+                <strong>No Active Subscription:</strong> Click below to start your free 7-day trial!
+              </p>
+            </div>
           )}
         </div>
 
         {/* Actions */}
         <div className="space-y-4">
-          {/* Cancel/Reactivate Subscription */}
+          {/* Activate Trial (if no subscription) */}
+          {!subscription && (
+            <button
+              onClick={handleActivateTrial}
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white border-2 border-blue-400/30 rounded-xl p-4 font-black transition-all disabled:opacity-50"
+              style={{ fontFamily: 'Impact, sans-serif' }}
+            >
+              {loading ? 'ACTIVATING...' : 'START 7-DAY FREE TRIAL'}
+            </button>
+          )}
+
+          {/* Cancel Subscription */}
           {subscription && subscription.status === 'active' && !subscription.cancelAtPeriodEnd && (
             <button
               onClick={() => setShowCancelConfirm(true)}
@@ -213,6 +262,7 @@ export function AccountPage() {
             </button>
           )}
 
+          {/* Reactivate Subscription */}
           {subscription && subscription.cancelAtPeriodEnd && (
             <button
               onClick={handleReactivateSubscription}
