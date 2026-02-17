@@ -298,49 +298,6 @@ export function Toolbar({ currentView, onViewChange, viewMode = 'list', showView
           </button>
         </div>
       )}
-
-      {/* Separator */}
-      <div className="w-px h-5 bg-app-border" />
-
-      {/* File Opener */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={handleOpenFiles}
-          disabled={isLoading}
-          className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-app-text bg-app-surface hover:bg-app-hover border border-app-border rounded transition-colors disabled:opacity-50"
-          title="Add Files"
-        >
-          {isLoading ? (
-            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : (
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          )}
-          Files
-        </button>
-        <button
-          onClick={handleOpenFolder}
-          disabled={isLoading}
-          className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-app-text bg-app-surface hover:bg-app-hover border border-app-border rounded transition-colors disabled:opacity-50"
-          title="Add Folder"
-        >
-          {isLoading ? (
-            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : (
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-            </svg>
-          )}
-          Folder
-        </button>
-      </div>
     </div>
   );
 }
