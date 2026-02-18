@@ -131,11 +131,11 @@ function createWindow(): void {
       : path.join(process.resourcesPath, 'app', 'dist', 'renderer', 'assets', 'icons', 'icon.png'),
   });
 
-  if (isDev && process.env.NODE_ENV === 'development') {
+  if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    const indexPath = path.join(__dirname, '../renderer/index.html');
+    const indexPath = path.join(process.resourcesPath, 'app', 'dist', 'renderer', 'index.html');
     mainWindow.loadFile(indexPath);
   }
 

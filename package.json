@@ -5,11 +5,11 @@
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
-    "dev:renderer": "vite",
+    "dev:renderer": "vite --config vite.renderer.config.ts",
     "dev:main": "tsc -p tsconfig.main.json && electron .",
     "dev:web": "vite --config vite.config.ts",
     "build": "npm run build:renderer && npm run build:main",
-    "build:renderer": "vite build",
+    "build:renderer": "vite build --config vite.renderer.config.ts",
     "build:main": "tsc -p tsconfig.main.json",
     "build:web": "vite build --config vite.config.ts",
     "start": "electron .",

@@ -8,6 +8,9 @@ interface SubscriptionGateProps {
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const { subscription, loading, hasActiveSubscription } = useSubscription();
 
+  // 🚀 BETA MODE: Allow all access regardless of subscription
+  const BETA_MODE = true; // Set to false when ready to enforce subscriptions
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -19,6 +22,19 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     );
   }
 
+  // Beta mode: let everyone through
+  if (BETA_MODE) {
+    return (
+      <>
+        <div className="bg-blue-600/20 border-b border-blue-500 px-4 py-2 text-center text-blue-200 text-sm">
+          🚀 <strong>BETA ACCESS:</strong> Free unlimited access during beta testing
+        </div>
+        {children}
+      </>
+    );
+  }
+
+  // Production mode: enforce subscriptions
   if (!hasActiveSubscription) {
     return <Navigate to="/subscribe" replace />;
   }
