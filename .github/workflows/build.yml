@@ -12,7 +12,6 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
-      # If one platform fails, let the other continue
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -33,17 +32,17 @@ jobs:
       - name: Build Windows
         if: runner.os == 'Windows'
         run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build macOS
         if: runner.os == 'macOS'
         run: npm run build:mac
         env:
-          # Disable all code signing — unsigned build for distribution
           CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_LINK: ""
           CSC_KEY_PASSWORD: ""
-          # Skip notarization entirely
-          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows artifacts
         if: runner.os == 'Windows'
