@@ -4,8 +4,8 @@ import { LoginPage } from './pages/LoginPage';
 import { SubscribePage } from './pages/SubscribePage';
 import { PlayerPage } from './pages/PlayerPage';
 import { AccountPage } from './pages/AccountPage';
+import { WebPlayerPage } from './pages/WebPlayerPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
-// TEMPORARILY REMOVED SubscriptionGate to fix navigation
 
 function App() {
   return (
@@ -16,7 +16,10 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/subscribe" element={<SubscribePage />} />
 
-        {/* Protected routes - require login ONLY (subscription check disabled for testing) */}
+        {/* Web player — public, no login required for browsing */}
+        <Route path="/listen" element={<WebPlayerPage />} />
+
+        {/* Protected routes - require login */}
         <Route
           path="/player"
           element={
@@ -35,7 +38,7 @@ function App() {
           }
         />
 
-        {/* Catch all - redirect to home */}
+        {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
