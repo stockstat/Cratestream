@@ -6,7 +6,6 @@ export function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Logged-in users go to account page (not player)
   useEffect(() => {
     if (user) {
       navigate('/account');
@@ -20,121 +19,159 @@ export function LandingPage() {
   const DOWNLOAD_URL = 'https://f001.backblazeb2.com/file/1994HipHop/CrateStream-Setup-1.0.0.exe';
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-black">
-      {/* Background Image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage: `url('/crate-digging.jpg')`,
-          backgroundPosition: 'center',
-        }}
-      />
-      
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/80 to-black/90" />
-      
-      {/* Orange glow overlay */}
-      <div 
-        className="absolute inset-0 opacity-25"
-        style={{
-          backgroundImage: `
-            radial-gradient(circle at 50% 30%, rgba(255, 140, 0, 0.5) 0%, transparent 60%),
-            radial-gradient(circle at 20% 70%, rgba(255, 215, 0, 0.3) 0%, transparent 50%)
-          `,
-        }}
-      />
+    <div className="min-h-screen relative overflow-auto" style={{ backgroundColor: '#1a0f0a' }}>
 
-      {/* Film grain texture */}
-      <div 
-        className="absolute inset-0 opacity-25"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-        }}
-      />
+      {/* ── BRICK WALL BACKGROUND ── */}
+      <div className="absolute inset-0" style={{ zIndex: 0 }}>
+        {/* Base brick color */}
+        <div className="absolute inset-0" style={{ backgroundColor: '#5c2d1e' }} />
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
-        {/* Logo / Brand */}
-        <div className="text-center mb-12 flex flex-col items-center">
-          <div className="flex items-center justify-center gap-12 mb-8">
-            <div className="text-center">
-              <h1 className="text-8xl md:text-9xl font-black text-white leading-none tracking-tighter" style={{ fontFamily: 'Impact, sans-serif' }}>
-                <span 
-                  className="block text-transparent bg-clip-text bg-gradient-to-b from-orange-400 via-orange-500 to-orange-600"
-                  style={{ 
-                    WebkitTextStroke: '2px rgba(255, 140, 0, 0.3)',
-                    filter: 'drop-shadow(3px 3px 0px rgba(0, 0, 0, 0.5))'
-                  }}
-                >
-                  CRATE
-                </span>
-                <span 
-                  className="block"
-                  style={{ 
-                    filter: 'drop-shadow(3px 3px 0px rgba(0, 0, 0, 0.5))'
-                  }}
-                >
-                  STREAM
-                </span>
-              </h1>
-            </div>
+        {/* Brick pattern via SVG */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Crect width='120' height='60' fill='%235c2d1e'/%3E%3C!-- Row 1 bricks --%3E%3Crect x='1' y='1' width='57' height='27' rx='1' fill='%23763828' stroke='%233d1a0e' stroke-width='1.5'/%3E%3Crect x='62' y='1' width='57' height='27' rx='1' fill='%236b3020' stroke='%233d1a0e' stroke-width='1.5'/%3E%3C!-- Row 2 bricks (offset) --%3E%3Crect x='-29' y='32' width='57' height='27' rx='1' fill='%23703322' stroke='%233d1a0e' stroke-width='1.5'/%3E%3Crect x='32' y='32' width='57' height='27' rx='1' fill='%237a3a26' stroke='%233d1a0e' stroke-width='1.5'/%3E%3Crect x='93' y='32' width='57' height='27' rx='1' fill='%236e3120' stroke='%233d1a0e' stroke-width='1.5'/%3E%3C!-- Mortar lines --%3E%3Cline x1='0' y1='30' x2='120' y2='30' stroke='%232e1208' stroke-width='2'/%3E%3Cline x1='60' y1='0' x2='60' y2='30' stroke='%232e1208' stroke-width='2'/%3E%3Cline x1='31' y1='30' x2='31' y2='60' stroke='%232e1208' stroke-width='2'/%3E%3Cline x1='92' y1='30' x2='92' y2='60' stroke='%232e1208' stroke-width='2'/%3E%3C/svg%3E")`,
+            backgroundSize: '120px 60px',
+          }}
+        />
 
-            <div className="hidden md:block flex-shrink-0">
-              <img 
-                src="/vinyl-crate.PNG"
-                alt="Record Crate" 
-                className="w-40 h-40 object-contain drop-shadow-2xl"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            </div>
-          </div>
-          
-          <p className="text-2xl md:text-3xl text-orange-400 mb-3 font-black uppercase tracking-widest" style={{ fontFamily: 'Impact, sans-serif', textShadow: '2px 2px 8px rgba(0, 0, 0, 0.8)' }}>
-            The Vault of 90s Hip-Hop
-          </p>
-          
-          <div className="flex items-center justify-center gap-4 text-lg text-gray-200 mb-4">
-            <span className="flex items-center gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-sm">
-              <svg className="w-5 h-5 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-              </svg>
-              <span className="font-bold">Over 100k tracks</span>
-            </span>
-            <span className="text-orange-400 font-bold">•</span>
-            <span className="bg-black/40 px-4 py-2 rounded-full backdrop-blur-sm font-bold">1979-2005</span>
-          </div>
+        {/* Aged/weathered overlay — dark top and bottom vignette */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `
+              radial-gradient(ellipse at 50% 0%, rgba(0,0,0,0.7) 0%, transparent 60%),
+              radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.8) 0%, transparent 60%),
+              radial-gradient(ellipse at 0% 50%, rgba(0,0,0,0.4) 0%, transparent 50%),
+              radial-gradient(ellipse at 100% 50%, rgba(0,0,0,0.4) 0%, transparent 50%)
+            `,
+          }}
+        />
 
-          {/* Beta Badge */}
-          <div className="inline-flex items-center gap-2 bg-blue-600/20 border border-blue-400/40 px-4 py-2 rounded-full backdrop-blur-sm">
-            <span className="text-blue-400 font-bold text-sm">🚀 BETA RELEASE</span>
+        {/* Spray paint color splashes — subtle, like graffiti bleed */}
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{
+            background: `
+              radial-gradient(circle at 15% 40%, rgba(255,140,0,0.6) 0%, transparent 30%),
+              radial-gradient(circle at 85% 60%, rgba(100,180,255,0.5) 0%, transparent 25%),
+              radial-gradient(circle at 50% 80%, rgba(140,80,200,0.4) 0%, transparent 30%),
+              radial-gradient(circle at 70% 20%, rgba(80,200,120,0.3) 0%, transparent 20%)
+            `,
+          }}
+        />
+
+        {/* Film grain / texture */}
+        <div
+          className="absolute inset-0 opacity-30"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
+            backgroundSize: '200px 200px',
+          }}
+        />
+      </div>
+
+      {/* ── CONTENT ── */}
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-start pt-10 pb-16 px-4">
+
+        {/* ── HERO LOGO — the star of the show ── */}
+        <div className="w-full flex justify-center mb-8" style={{ maxWidth: '680px' }}>
+          <div
+            className="relative w-full"
+            style={{
+              filter: 'drop-shadow(0 8px 40px rgba(0,0,0,0.9)) drop-shadow(0 0 60px rgba(255,140,0,0.15))',
+              animation: 'logoEntrance 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+            }}
+          >
+            <img
+              src="/Cratestream.PNG"
+              alt="CrateStream"
+              className="w-full h-auto"
+              style={{ borderRadius: '8px' }}
+            />
           </div>
         </div>
 
-        {/* Main Download CTA */}
-        <div className="mb-12 text-center">
+        {/* ── TAGLINE ── */}
+        <div className="text-center mb-8" style={{ animation: 'fadeUp 0.6s 0.3s ease both' }}>
+          <p
+            className="text-2xl md:text-3xl text-orange-400 font-black uppercase tracking-widest mb-3"
+            style={{
+              fontFamily: 'Impact, "Arial Narrow", sans-serif',
+              textShadow: '2px 2px 0 #000, 0 0 20px rgba(255,140,0,0.4)',
+            }}
+          >
+            The Vault of 90s Hip-Hop
+          </p>
+
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <span
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-gray-200 text-sm font-bold"
+              style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)' }}
+            >
+              <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
+              </svg>
+              Over 100k tracks
+            </span>
+            <span className="text-orange-500 font-black text-lg">•</span>
+            <span
+              className="px-4 py-2 rounded-full text-gray-200 text-sm font-bold"
+              style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)' }}
+            >
+              1979 – 2005
+            </span>
+            <span
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-blue-300 text-sm font-bold"
+              style={{ background: 'rgba(37,99,235,0.2)', border: '1px solid rgba(96,165,250,0.3)', backdropFilter: 'blur(8px)' }}
+            >
+              🚀 BETA RELEASE
+            </span>
+          </div>
+        </div>
+
+        {/* ── MAIN DOWNLOAD CTA ── */}
+        <div className="mb-8 text-center w-full max-w-md" style={{ animation: 'fadeUp 0.6s 0.45s ease both' }}>
           <a
             href={DOWNLOAD_URL}
-            className="inline-block px-16 py-6 bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 text-white font-black rounded-2xl hover:from-orange-700 hover:via-orange-600 hover:to-orange-700 hover:scale-105 transition-all text-2xl uppercase tracking-wider shadow-2xl border-4 border-orange-400/30"
-            style={{ fontFamily: 'Impact, sans-serif' }}
+            className="group inline-flex items-center justify-center gap-4 w-full px-10 py-5 font-black rounded-2xl uppercase tracking-wider text-xl text-white transition-all duration-200"
+            style={{
+              fontFamily: 'Impact, "Arial Narrow", sans-serif',
+              background: 'linear-gradient(135deg, #c2410c, #ea580c, #fb923c)',
+              boxShadow: '0 4px 0 #7c2d12, 0 8px 30px rgba(234,88,12,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
+              border: '2px solid rgba(253,186,116,0.3)',
+              textShadow: '1px 1px 0 rgba(0,0,0,0.5)',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-2px)';
+              (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 6px 0 #7c2d12, 0 12px 40px rgba(234,88,12,0.6), inset 0 1px 0 rgba(255,255,255,0.15)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)';
+              (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 4px 0 #7c2d12, 0 8px 30px rgba(234,88,12,0.5), inset 0 1px 0 rgba(255,255,255,0.15)';
+            }}
           >
-            <div className="flex items-center gap-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              <span>Download for Windows</span>
-            </div>
+            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Download for Windows
           </a>
-          
-          <p className="text-gray-400 text-sm mt-4 font-medium">
+          <p className="text-gray-400 text-xs mt-3 font-medium tracking-wide">
             Free 7-day trial • Windows 10/11 • ~95MB
           </p>
 
-          {/* Secondary Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
+          {/* Secondary buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
             <button
               onClick={() => navigate('/login')}
-              className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all border-2 border-white/20"
+              className="flex-1 px-6 py-3 font-bold rounded-xl text-sm text-white transition-all duration-150"
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                border: '2px solid rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(8px)',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
             >
               Login to Account
             </button>
@@ -142,55 +179,81 @@ export function LandingPage() {
               href="https://discord.gg/aGr2Cs9NFt"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold rounded-xl transition-all border-2 border-indigo-400/30"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-xl text-sm text-white transition-all duration-150"
+              style={{
+                background: 'rgba(88,101,242,0.25)',
+                border: '2px solid rgba(88,101,242,0.5)',
+                backdropFilter: 'blur(8px)',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(88,101,242,0.45)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(88,101,242,0.25)')}
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
               </svg>
               Join Discord
             </a>
           </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
-          <div className="bg-black/60 backdrop-blur-md border-2 border-orange-500/40 rounded-xl p-8 text-center transform hover:scale-105 hover:border-orange-400/60 transition-all shadow-2xl">
-            <div className="text-6xl mb-4">💿</div>
-            <h3 className="text-white font-black text-xl mb-3 uppercase tracking-wider" style={{ fontFamily: 'Impact, sans-serif' }}>
-              Deep Catalog
-            </h3>
-            <p className="text-gray-300 text-sm leading-relaxed font-medium">
-              Complete albums, B-sides, rare cuts, and underground classics from the golden era
-            </p>
-          </div>
-          
-          <div className="bg-black/60 backdrop-blur-md border-2 border-orange-500/40 rounded-xl p-8 text-center transform hover:scale-105 hover:border-orange-400/60 transition-all shadow-2xl">
-            <div className="text-6xl mb-4">📦</div>
-            <h3 className="text-white font-black text-xl mb-3 uppercase tracking-wider" style={{ fontFamily: 'Impact, sans-serif' }}>
-              Crate Digger's Paradise
-            </h3>
-            <p className="text-gray-300 text-sm leading-relaxed font-medium">
-              Tracks you won't find on mainstream platforms. Real heads know.
-            </p>
-          </div>
-          
-          <div className="bg-black/60 backdrop-blur-md border-2 border-orange-500/40 rounded-xl p-8 text-center transform hover:scale-105 hover:border-orange-400/60 transition-all shadow-2xl">
-            <div className="text-6xl mb-4">💰</div>
-            <h3 className="text-white font-black text-xl mb-3 uppercase tracking-wider" style={{ fontFamily: 'Impact, sans-serif' }}>
-              $3/Month
-            </h3>
-            <p className="text-gray-300 text-sm leading-relaxed font-medium">
-              Unlimited streaming. No ads. Cancel anytime. Support the culture.
-            </p>
-          </div>
+        {/* ── FEATURES GRID ── */}
+        <div
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-8"
+          style={{ maxWidth: '900px', animation: 'fadeUp 0.6s 0.6s ease both' }}
+        >
+          {[
+            { emoji: '💿', title: 'Deep Catalog', desc: 'Complete albums, B-sides, rare cuts, and underground classics from the golden era' },
+            { emoji: '📦', title: "Crate Digger's Paradise", desc: "Tracks you won't find on mainstream platforms. Real heads know." },
+            { emoji: '💰', title: '$3/Month', desc: 'Unlimited streaming. No ads. Cancel anytime. Support the culture.' },
+          ].map(({ emoji, title, desc }) => (
+            <div
+              key={title}
+              className="rounded-xl p-6 text-center transition-all duration-200"
+              style={{
+                background: 'rgba(0,0,0,0.65)',
+                border: '2px solid rgba(255,140,0,0.25)',
+                backdropFilter: 'blur(12px)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.border = '2px solid rgba(255,140,0,0.55)';
+                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.border = '2px solid rgba(255,140,0,0.25)';
+                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+              }}
+            >
+              <div className="text-5xl mb-3">{emoji}</div>
+              <h3
+                className="text-white font-black text-lg mb-2 uppercase tracking-wider"
+                style={{ fontFamily: 'Impact, "Arial Narrow", sans-serif' }}
+              >
+                {title}
+              </h3>
+              <p className="text-gray-300 text-sm leading-relaxed">{desc}</p>
+            </div>
+          ))}
         </div>
 
-        {/* System Requirements */}
-        <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 border border-orange-500/20 max-w-2xl mb-8">
-          <h3 className="text-orange-400 font-black text-lg mb-3 uppercase tracking-wider" style={{ fontFamily: 'Impact, sans-serif' }}>
+        {/* ── SYSTEM REQUIREMENTS ── */}
+        <div
+          className="w-full rounded-xl p-5 mb-5"
+          style={{
+            maxWidth: '600px',
+            background: 'rgba(0,0,0,0.55)',
+            border: '1px solid rgba(255,140,0,0.2)',
+            backdropFilter: 'blur(8px)',
+            animation: 'fadeUp 0.6s 0.75s ease both',
+          }}
+        >
+          <h3
+            className="text-orange-400 font-black text-base mb-3 uppercase tracking-widest"
+            style={{ fontFamily: 'Impact, "Arial Narrow", sans-serif' }}
+          >
             System Requirements
           </h3>
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-300">
+          <div className="grid grid-cols-2 gap-3 text-sm text-gray-300">
             <div><span className="text-white font-bold">OS:</span> Windows 10/11</div>
             <div><span className="text-white font-bold">RAM:</span> 4GB minimum</div>
             <div><span className="text-white font-bold">Storage:</span> 200MB free</div>
@@ -198,23 +261,68 @@ export function LandingPage() {
           </div>
         </div>
 
-        {/* Web Player Notice */}
-        <div className="bg-blue-600/10 border border-blue-400/30 rounded-xl p-4 max-w-2xl mb-8">
-          <p className="text-blue-300 text-sm text-center">
+        {/* ── WEB PLAYER NOTICE ── */}
+        <div
+          className="w-full rounded-xl p-4 mb-6 text-center"
+          style={{
+            maxWidth: '600px',
+            background: 'rgba(37,99,235,0.1)',
+            border: '1px solid rgba(96,165,250,0.25)',
+            backdropFilter: 'blur(8px)',
+            animation: 'fadeUp 0.6s 0.85s ease both',
+          }}
+        >
+          <p className="text-blue-300 text-sm font-medium">
             <span className="font-bold">🌐 Web Player Coming Soon</span> • Currently in development for browser & mobile access
           </p>
         </div>
 
-        {/* Footer Quote */}
-        <div className="text-center max-w-2xl bg-black/50 backdrop-blur-sm rounded-xl p-6 border border-orange-500/20">
-          <p className="text-gray-300 text-sm italic mb-3 font-medium">
+        {/* ── FOOTER QUOTE ── */}
+        <div
+          className="w-full rounded-xl p-5 text-center"
+          style={{
+            maxWidth: '600px',
+            background: 'rgba(0,0,0,0.55)',
+            border: '1px solid rgba(255,140,0,0.15)',
+            backdropFilter: 'blur(8px)',
+            animation: 'fadeUp 0.6s 0.95s ease both',
+          }}
+        >
+          <p className="text-gray-300 text-sm italic mb-2 font-medium">
             "If you're not diggin' in the crates, you're not really diggin' the culture."
           </p>
-          <p className="text-orange-400 font-black uppercase text-sm tracking-widest" style={{ fontFamily: 'Impact, sans-serif' }}>
+          <p
+            className="text-orange-400 font-black uppercase text-xs tracking-widest"
+            style={{ fontFamily: 'Impact, "Arial Narrow", sans-serif' }}
+          >
             Real Hip-Hop. No Algorithm. Just Crates. 👑
           </p>
         </div>
       </div>
+
+      {/* ── KEYFRAME ANIMATIONS ── */}
+      <style>{`
+        @keyframes logoEntrance {
+          from {
+            opacity: 0;
+            transform: scale(0.92) translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+        @keyframes fadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
