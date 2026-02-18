@@ -1,19 +1,27 @@
 // api/browse.js — Vercel serverless function
-// Browses Backblaze B2 bucket: years, albums, or tracks
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   const { prefix = '' } = req.query;
 
-  const keyId  = process.env.B2_KEY_ID;
-  const appKey = process.env.B2_APP_KEY;
-  const bucket = process.env.B2_BUCKET_NAME;
-  const endpoint = process.env.B2_ENDPOINT;
+  const keyId    = process.env.B2_KEY_ID;
+  const appKey   = process.env.B2_APP_KEY;
+  const bucket   = process.env.B2_BUCKET_NAME;
+  const bucketId = process.env.B2_BUCKET_ID;
+
+  // Debug — remove after fixing
+  if (!keyId || !appKey) {
+    return res.status(500).json({
+      error: 'Missing env vars',
+      hasKeyId: !!keyId,
+      hasAppKey: !!appKey,
+      hasBucket: !!bucket,
+      hasBucketId: !!bucketId,
+    });
+  }
 
   try {
-    // Step 1 — Authorize with Backblaze
     const authRes = await fetch('https://api.backblazeb2.com/b2api/v2/b2_authorize_account', {
       headers: {
         Authorization: 'Basic ' + Buffer.from(`${keyId}:${appKey}`).toString('base64'),
@@ -29,7 +37,6 @@ export default async function handler(req, res) {
     const apiUrl = auth.apiUrl;
     const authToken = auth.authorizationToken;
 
-    // Step 2 — List files with delimiter to get "folders"
     const listRes = await fetch(`${apiUrl}/b2api/v2/b2_list_file_names`, {
       method: 'POST',
       headers: {
@@ -37,7 +44,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        bucketId: process.env.B2_BUCKET_ID,
+        bucketId: bucketId,
         prefix: prefix,
         delimiter: '/',
         maxFileCount: 1000,
@@ -51,7 +58,6 @@ export default async function handler(req, res) {
 
     const data = await listRes.json();
 
-    // Folders come back as commonPrefixes, files as files
     const folders = (data.commonPrefixes || []).map(p => ({
       type: 'folder',
       name: p.replace(prefix, '').replace('/', ''),
