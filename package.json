@@ -15,6 +15,7 @@
     "start": "electron .",
     "build:win": "npm run build && electron-builder --win",
     "build:win:portable": "npm run build && electron-builder --win portable",
+    "build:mac": "npm run build && electron-builder --mac",
     "build:all": "npm run build && electron-builder --win --mac --linux"
   },
   "dependencies": {
@@ -93,6 +94,24 @@
     },
     "portable": {
       "artifactName": "${productName}-Portable-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "identity": null,
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
     }
   }
 }

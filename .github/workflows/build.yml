@@ -12,34 +12,39 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
-    
+      # If one platform fails, let the other continue
+      fail-fast: false
+
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build Windows
         if: runner.os == 'Windows'
         run: npm run build:win
-      
+
       - name: Build macOS
         if: runner.os == 'macOS'
-        run: |
-          npm run build
-          npx electron-builder --mac
+        run: npm run build:mac
         env:
+          # Disable all code signing — unsigned build for distribution
           CSC_IDENTITY_AUTO_DISCOVERY: false
-      
+          CSC_LINK: ""
+          CSC_KEY_PASSWORD: ""
+          # Skip notarization entirely
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: true
+
       - name: Upload Windows artifacts
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -48,7 +53,7 @@ jobs:
           path: |
             release/*.exe
             release/*.zip
-      
+
       - name: Upload macOS artifacts
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
@@ -57,7 +62,7 @@ jobs:
           path: |
             release/*.dmg
             release/*.zip
-      
+
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
