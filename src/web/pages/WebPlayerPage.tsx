@@ -14,37 +14,140 @@ interface FileItem {
   url: string;
 }
 
-type BrowseItem = FolderItem | FileItem;
+interface ImageItem {
+  name: string;
+  fileName: string;
+  url: string;
+}
+
+interface Album {
+  folder: FolderItem;
+  artworkUrl: string | null;
+  artistName: string;
+  albumName: string;
+}
 
 interface BreadcrumbEntry {
   name: string;
   prefix: string;
+  type: 'root' | 'year' | 'album';
 }
 
 export function WebPlayerPage() {
-  const [items, setItems]           = useState<BrowseItem[]>([]);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
-  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbEntry[]>([{ name: 'All Years', prefix: '' }]);
-  const [currentTrack, setCurrentTrack] = useState<FileItem | null>(null);
-  const [playing, setPlaying]       = useState(false);
-  const [progress, setProgress]     = useState(0);
-  const [duration, setDuration]     = useState(0);
-  const [volume, setVolume]         = useState(1);
-  const [queue, setQueue]           = useState<FileItem[]>([]);
-  const [queueIndex, setQueueIndex] = useState(0);
-  const [search, setSearch]         = useState('');
+  const [view, setView]                   = useState<'years' | 'albums' | 'tracks'>('years');
+  const [years, setYears]                 = useState<FolderItem[]>([]);
+  const [albums, setAlbums]               = useState<Album[]>([]);
+  const [tracks, setTracks]               = useState<FileItem[]>([]);
+  const [currentAlbum, setCurrentAlbum]   = useState<Album | null>(null);
+  const [loading, setLoading]             = useState(false);
+  const [loadingAlbums, setLoadingAlbums] = useState(false);
+  const [error, setError]                 = useState('');
+  const [breadcrumbs, setBreadcrumbs]     = useState<BreadcrumbEntry[]>([{ name: 'All Years', prefix: '', type: 'root' }]);
+  const [currentTrack, setCurrentTrack]   = useState<FileItem | null>(null);
+  const [playing, setPlaying]             = useState(false);
+  const [progress, setProgress]           = useState(0);
+  const [duration, setDuration]           = useState(0);
+  const [volume, setVolume]               = useState(1);
+  const [queueIndex, setQueueIndex]       = useState(0);
+  const [search, setSearch]               = useState('');
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const browse = async (prefix: string) => {
+    const res = await fetch(`/api/browse?prefix=${encodeURIComponent(prefix)}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  };
+
+  // Load years on mount
+  useEffect(() => {
     setLoading(true);
-    setError('');
+    browse('').then(data => {
+      setYears(data.folders);
+      setLoading(false);
+    }).catch(e => {
+      setError(e.message);
+      setLoading(false);
+    });
+  }, []);
+
+  // Parse artist/album from jpg filename like "M.C. Luscious - Boom!.jpg"
+  const parseJpgName = (jpgName: string): { artist: string; album: string } => {
+    const noExt = jpgName.replace(/\.(jpg|jpeg|png)$/i, '');
+    const dashIdx = noExt.indexOf(' - ');
+    if (dashIdx > -1) {
+      return {
+        artist: noExt.substring(0, dashIdx).trim(),
+        album: noExt.substring(dashIdx + 3).trim(),
+      };
+    }
+    return { artist: '', album: noExt };
+  };
+
+  const openYear = async (year: FolderItem) => {
+    setLoadingAlbums(true);
+    setSearch('');
+    setBreadcrumbs([
+      { name: 'All Years', prefix: '', type: 'root' },
+      { name: year.name, prefix: year.prefix, type: 'year' },
+    ]);
+    setView('albums');
+
     try {
-      const res = await fetch(`/api/browse?prefix=${encodeURIComponent(prefix)}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setItems([...data.folders, ...data.files]);
+      // Get all album subfolders in this year
+      const yearData = await browse(year.prefix);
+      const albumFolders: FolderItem[] = yearData.folders;
+
+      // For each album folder, fetch its contents to find the jpg
+      const albumPromises = albumFolders.map(async (folder) => {
+        try {
+          const albumData = await browse(folder.prefix);
+          const jpg: ImageItem | undefined = albumData.images?.[0];
+          const parsed = jpg ? parseJpgName(jpg.name) : { artist: '', album: folder.name };
+          return {
+            folder,
+            artworkUrl: jpg ? jpg.url : null,
+            artistName: parsed.artist,
+            albumName: parsed.album,
+          } as Album;
+        } catch {
+          return {
+            folder,
+            artworkUrl: null,
+            artistName: '',
+            albumName: folder.name,
+          } as Album;
+        }
+      });
+
+      // Load albums progressively — 5 at a time
+      const results: Album[] = [];
+      const chunkSize = 5;
+      for (let i = 0; i < albumPromises.length; i += chunkSize) {
+        const chunk = await Promise.all(albumPromises.slice(i, i + chunkSize));
+        results.push(...chunk);
+        setAlbums([...results]);
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoadingAlbums(false);
+    }
+  };
+
+  const openAlbum = async (album: Album) => {
+    setLoading(true);
+    setSearch('');
+    setCurrentAlbum(album);
+    setBreadcrumbs(prev => [
+      ...prev.slice(0, 2),
+      { name: album.albumName || album.folder.name, prefix: album.folder.prefix, type: 'album' },
+    ]);
+    setView('tracks');
+    try {
+      const data = await browse(album.folder.prefix);
+      setTracks(data.files);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -52,26 +155,19 @@ export function WebPlayerPage() {
     }
   };
 
-  useEffect(() => {
-    browse('');
-  }, []);
-
-  const navigateTo = (folder: FolderItem) => {
-    setBreadcrumbs(prev => [...prev, { name: folder.name, prefix: folder.prefix }]);
-    browse(folder.prefix);
-    setSearch('');
-  };
-
   const navigateToCrumb = (index: number) => {
     const crumb = breadcrumbs[index];
     setBreadcrumbs(prev => prev.slice(0, index + 1));
-    browse(crumb.prefix);
     setSearch('');
+    if (crumb.type === 'root') {
+      setView('years');
+    } else if (crumb.type === 'year') {
+      setView('albums');
+    }
   };
 
-  const playTrack = (file: FileItem, allFiles: FileItem[], index: number) => {
+  const playTrack = (file: FileItem, index: number) => {
     setCurrentTrack(file);
-    setQueue(allFiles);
     setQueueIndex(index);
     setPlaying(true);
     if (audioRef.current) {
@@ -81,72 +177,50 @@ export function WebPlayerPage() {
   };
 
   const playNext = () => {
-    if (queueIndex < queue.length - 1) {
-      const next = queue[queueIndex + 1];
+    if (queueIndex < tracks.length - 1) {
+      const next = tracks[queueIndex + 1];
       setCurrentTrack(next);
       setQueueIndex(i => i + 1);
-      if (audioRef.current) {
-        audioRef.current.src = next.url;
-        audioRef.current.play();
-      }
+      if (audioRef.current) { audioRef.current.src = next.url; audioRef.current.play(); }
     }
   };
 
   const playPrev = () => {
     if (queueIndex > 0) {
-      const prev = queue[queueIndex - 1];
+      const prev = tracks[queueIndex - 1];
       setCurrentTrack(prev);
       setQueueIndex(i => i - 1);
-      if (audioRef.current) {
-        audioRef.current.src = prev.url;
-        audioRef.current.play();
-      }
+      if (audioRef.current) { audioRef.current.src = prev.url; audioRef.current.play(); }
     }
   };
 
   const togglePlay = () => {
     if (!audioRef.current) return;
-    if (playing) {
-      audioRef.current.pause();
-      setPlaying(false);
-    } else {
-      audioRef.current.play();
-      setPlaying(true);
-    }
+    if (playing) { audioRef.current.pause(); setPlaying(false); }
+    else { audioRef.current.play(); setPlaying(true); }
   };
 
-  const formatTime = (s: number) => {
+  const fmt = (s: number) => {
     if (!s || isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
+    return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
   };
 
   const cleanName = (name: string) =>
-    name.replace(/\.(mp3|flac|wav|ogg|m4a|aac)$/i, '').replace(/_/g, ' ');
+    name.replace(/\.(mp3|flac|wav|ogg|m4a|aac)$/i, '').replace(/^\d+\s*[-_.]\s*/, '').trim();
 
-  const files = items.filter(i => i.type === 'file') as FileItem[];
-  const folders = items.filter(i => i.type === 'folder') as FolderItem[];
-
-  const filteredFolders = search
-    ? folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
-    : folders;
-  const filteredFiles = search
-    ? files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
-    : files;
+  const filteredYears = years.filter(y => !search || y.name.includes(search));
+  const filteredAlbums = albums.filter(a => !search ||
+    a.albumName.toLowerCase().includes(search.toLowerCase()) ||
+    a.artistName.toLowerCase().includes(search.toLowerCase())
+  );
+  const filteredTracks = tracks.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div style={{ backgroundColor: '#0d0d0d', minHeight: '100vh', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
-
-      {/* Hidden audio element */}
+    <div style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       <audio
         ref={audioRef}
-        onTimeUpdate={() => {
-          if (audioRef.current) setProgress(audioRef.current.currentTime);
-        }}
-        onLoadedMetadata={() => {
-          if (audioRef.current) setDuration(audioRef.current.duration);
-        }}
+        onTimeUpdate={() => { if (audioRef.current) setProgress(audioRef.current.currentTime); }}
+        onLoadedMetadata={() => { if (audioRef.current) setDuration(audioRef.current.duration); }}
         onEnded={playNext}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
@@ -154,44 +228,32 @@ export function WebPlayerPage() {
 
       {/* Header */}
       <div style={{
-        background: 'linear-gradient(135deg, #1a0800, #2d1200)',
-        borderBottom: '2px solid rgba(255,140,0,0.3)',
-        padding: '12px 16px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
+        background: 'linear-gradient(135deg, #1a0800, #2a1000)',
+        borderBottom: '2px solid rgba(255,140,0,0.35)',
+        padding: '10px 16px',
+        position: 'sticky', top: 0, zIndex: 100,
+        display: 'flex', alignItems: 'center', gap: '12px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', maxWidth: '900px', margin: '0 auto' }}>
-          <img src="/Cratestream.PNG" alt="CrateStream" style={{ height: '40px', borderRadius: '4px' }} />
-          <div>
-            <div style={{ fontWeight: 900, fontSize: '16px', color: '#ff8c00', fontFamily: 'Impact, sans-serif', letterSpacing: '1px' }}>
-              CRATESTREAM
-            </div>
-            <div style={{ fontSize: '11px', color: '#888' }}>The Vault of 90s Hip-Hop</div>
-          </div>
+        <img src="/Cratestream.PNG" alt="CrateStream" style={{ height: '38px', borderRadius: '4px' }} />
+        <div>
+          <div style={{ fontWeight: 900, fontSize: '15px', color: '#ff8c00', fontFamily: 'Impact, sans-serif', letterSpacing: '1px' }}>CRATESTREAM</div>
+          <div style={{ fontSize: '10px', color: '#666' }}>The Vault of 90s Hip-Hop</div>
         </div>
       </div>
 
-      {/* Main content */}
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 0 120px 0' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 0 130px 0' }}>
 
         {/* Breadcrumbs */}
-        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
           {breadcrumbs.map((crumb, i) => (
-            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {i > 0 && <span style={{ color: '#555' }}>›</span>}
-              <button
-                onClick={() => navigateToCrumb(i)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: i === breadcrumbs.length - 1 ? '#ff8c00' : '#888',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: i === breadcrumbs.length - 1 ? 700 : 400,
-                  padding: '2px 4px',
-                }}
-              >
+            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {i > 0 && <span style={{ color: '#444' }}>›</span>}
+              <button onClick={() => navigateToCrumb(i)} style={{
+                background: 'none', border: 'none', padding: '2px 6px', borderRadius: '4px',
+                color: i === breadcrumbs.length - 1 ? '#ff8c00' : '#777',
+                fontWeight: i === breadcrumbs.length - 1 ? 700 : 400,
+                fontSize: '13px', cursor: 'pointer',
+              }}>
                 {crumb.name}
               </button>
             </span>
@@ -201,237 +263,221 @@ export function WebPlayerPage() {
         {/* Search */}
         <div style={{ padding: '0 16px 12px' }}>
           <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+            type="text" placeholder={view === 'years' ? 'Search years...' : view === 'albums' ? 'Search artist or album...' : 'Search tracks...'}
+            value={search} onChange={e => setSearch(e.target.value)}
             style={{
-              width: '100%',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              border: '1px solid rgba(255,140,0,0.2)',
-              background: 'rgba(255,255,255,0.05)',
-              color: '#fff',
-              fontSize: '14px',
-              outline: 'none',
-              boxSizing: 'border-box',
+              width: '100%', padding: '10px 14px', borderRadius: '10px', boxSizing: 'border-box',
+              border: '1px solid rgba(255,140,0,0.2)', background: 'rgba(255,255,255,0.05)',
+              color: '#fff', fontSize: '14px', outline: 'none',
             }}
           />
         </div>
 
-        {/* Error */}
         {error && (
           <div style={{ margin: '16px', padding: '12px', background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: '8px', color: '#ff6b6b', fontSize: '13px' }}>
-            Error: {error}
+            {error}
           </div>
         )}
 
-        {/* Loading */}
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#ff8c00' }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>⏳</div>
-            Loading...
-          </div>
-        )}
-
-        {/* Folders (Years / Albums) */}
-        {!loading && filteredFolders.length > 0 && (
+        {/* ── YEARS VIEW ── */}
+        {view === 'years' && (
           <div style={{ padding: '0 16px' }}>
-            <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
-              {breadcrumbs.length === 1 ? 'Years' : 'Albums'}
+            <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>Browse by Year</div>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#ff8c00' }}>Loading years...</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px' }}>
+                {filteredYears.map(year => (
+                  <button key={year.prefix} onClick={() => openYear(year)} style={{
+                    background: 'linear-gradient(135deg, rgba(255,140,0,0.12), rgba(255,100,0,0.06))',
+                    border: '1px solid rgba(255,140,0,0.25)', borderRadius: '12px',
+                    padding: '20px 10px', color: '#fff', cursor: 'pointer', textAlign: 'center',
+                    transition: 'all 0.15s', fontSize: '22px', fontWeight: 900,
+                    fontFamily: 'Impact, sans-serif', letterSpacing: '1px',
+                  }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,140,0,0.22)'; (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.04)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(255,140,0,0.12), rgba(255,100,0,0.06))'; (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+                  >
+                    {year.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ALBUMS VIEW ── */}
+        {view === 'albums' && (
+          <div style={{ padding: '0 16px' }}>
+            <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
+              {loadingAlbums ? `Loading albums...` : `${filteredAlbums.length} Albums`}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
-              {filteredFolders.map(folder => (
-                <button
-                  key={folder.prefix}
-                  onClick={() => navigateTo(folder)}
-                  style={{
-                    background: 'rgba(255,140,0,0.08)',
-                    border: '1px solid rgba(255,140,0,0.2)',
-                    borderRadius: '10px',
-                    padding: '14px 10px',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.15s',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    lineHeight: '1.3',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,140,0,0.18)';
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,140,0,0.5)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,140,0,0.08)';
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,140,0,0.2)';
-                  }}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '12px' }}>
+              {filteredAlbums.map(album => (
+                <button key={album.folder.prefix} onClick={() => openAlbum(album)} style={{
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '10px', padding: '0', color: '#fff', cursor: 'pointer',
+                  textAlign: 'left', overflow: 'hidden', transition: 'all 0.15s',
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.03)'; (e.currentTarget as HTMLButtonElement).style.border = '1px solid rgba(255,140,0,0.4)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLButtonElement).style.border = '1px solid rgba(255,255,255,0.08)'; }}
                 >
-                  <div style={{ fontSize: '20px', marginBottom: '6px' }}>
-                    {breadcrumbs.length === 1 ? '📅' : '💿'}
+                  {/* Artwork */}
+                  <div style={{ width: '100%', aspectRatio: '1', overflow: 'hidden', background: '#1a1a1a', position: 'relative' }}>
+                    {album.artworkUrl ? (
+                      <img src={album.artworkUrl} alt={album.albumName}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px' }}>💿</div>
+                    )}
                   </div>
-                  {folder.name}
+                  {/* Info */}
+                  <div style={{ padding: '8px 10px 10px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', lineHeight: '1.3', marginBottom: '3px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      {album.albumName || album.folder.name}
+                    </div>
+                    {album.artistName && (
+                      <div style={{ fontSize: '11px', color: '#ff8c00', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {album.artistName}
+                      </div>
+                    )}
+                  </div>
                 </button>
+              ))}
+              {loadingAlbums && Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', aspectRatio: '1', animation: 'pulse 1.5s ease-in-out infinite' }} />
               ))}
             </div>
           </div>
         )}
 
-        {/* Tracks */}
-        {!loading && filteredFiles.length > 0 && (
-          <div style={{ padding: '16px 16px 0' }}>
-            <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
-              {filteredFiles.length} Tracks
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              {filteredFiles.map((file, i) => (
-                <button
-                  key={file.fileName}
-                  onClick={() => playTrack(file, filteredFiles, i)}
+        {/* ── TRACKS VIEW ── */}
+        {view === 'tracks' && currentAlbum && (
+          <div style={{ padding: '0 16px' }}>
+            {/* Album header */}
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', alignItems: 'flex-start' }}>
+              <div style={{ width: '100px', height: '100px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', background: '#1a1a1a' }}>
+                {currentAlbum.artworkUrl
+                  ? <img src={currentAlbum.artworkUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px' }}>💿</div>
+                }
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '18px', fontWeight: 900, color: '#fff', marginBottom: '4px', lineHeight: '1.2' }}>
+                  {currentAlbum.albumName || currentAlbum.folder.name}
+                </div>
+                {currentAlbum.artistName && (
+                  <div style={{ fontSize: '14px', color: '#ff8c00', marginBottom: '8px' }}>{currentAlbum.artistName}</div>
+                )}
+                <button onClick={() => { if (filteredTracks.length > 0) playTrack(filteredTracks[0], 0); }}
                   style={{
-                    background: currentTrack?.fileName === file.fileName
-                      ? 'rgba(255,140,0,0.15)'
-                      : 'rgba(255,255,255,0.03)',
-                    border: currentTrack?.fileName === file.fileName
-                      ? '1px solid rgba(255,140,0,0.4)'
-                      : '1px solid transparent',
-                    borderRadius: '8px',
-                    padding: '10px 14px',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    fontSize: '13px',
-                    transition: 'all 0.1s',
-                  }}
-                >
-                  <span style={{ color: currentTrack?.fileName === file.fileName ? '#ff8c00' : '#555', fontSize: '16px', flexShrink: 0 }}>
-                    {currentTrack?.fileName === file.fileName && playing ? '▶' : '♪'}
-                  </span>
-                  <span style={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    color: currentTrack?.fileName === file.fileName ? '#ff8c00' : '#ddd',
-                    fontWeight: currentTrack?.fileName === file.fileName ? 700 : 400,
+                    background: '#ff8c00', border: 'none', borderRadius: '8px',
+                    padding: '8px 20px', color: '#000', fontWeight: 900, fontSize: '13px',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
                   }}>
-                    {cleanName(file.name)}
-                  </span>
-                  <span style={{ color: '#555', fontSize: '11px', flexShrink: 0 }}>
-                    {(file.size / 1024 / 1024).toFixed(1)}MB
-                  </span>
+                  ▶ Play All
                 </button>
-              ))}
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Empty state */}
-        {!loading && !error && filteredFolders.length === 0 && filteredFiles.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px 16px', color: '#555' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>📦</div>
-            <div>Nothing found</div>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#ff8c00' }}>Loading tracks...</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
+                  {filteredTracks.length} Tracks
+                </div>
+                {filteredTracks.map((file, i) => (
+                  <button key={file.fileName} onClick={() => playTrack(file, i)} style={{
+                    background: currentTrack?.fileName === file.fileName ? 'rgba(255,140,0,0.15)' : 'rgba(255,255,255,0.03)',
+                    border: currentTrack?.fileName === file.fileName ? '1px solid rgba(255,140,0,0.4)' : '1px solid transparent',
+                    borderRadius: '8px', padding: '10px 14px', color: '#fff', cursor: 'pointer',
+                    textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px',
+                  }}>
+                    <span style={{ color: currentTrack?.fileName === file.fileName ? '#ff8c00' : '#444', fontSize: '16px', flexShrink: 0, width: '20px', textAlign: 'center' }}>
+                      {currentTrack?.fileName === file.fileName && playing ? '▶' : `${i + 1}`}
+                    </span>
+                    <span style={{
+                      flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      color: currentTrack?.fileName === file.fileName ? '#ff8c00' : '#ddd',
+                      fontWeight: currentTrack?.fileName === file.fileName ? 700 : 400,
+                    }}>
+                      {cleanName(file.name)}
+                    </span>
+                    <span style={{ color: '#444', fontSize: '11px', flexShrink: 0 }}>
+                      {(file.size / 1024 / 1024).toFixed(1)}MB
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* ── PLAYER BAR — sticky bottom ── */}
+      {/* ── PLAYER BAR ── */}
       {currentTrack && (
         <div style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: 'linear-gradient(180deg, #1a0800 0%, #0d0500 100%)',
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+          background: 'linear-gradient(180deg, rgba(20,8,0,0.97) 0%, rgba(10,4,0,0.99) 100%)',
           borderTop: '2px solid rgba(255,140,0,0.4)',
-          padding: '10px 16px 16px',
-          zIndex: 200,
+          padding: '8px 16px 20px',
         }}>
-          {/* Progress bar */}
-          <div
-            style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginBottom: '10px', cursor: 'pointer' }}
-            onClick={e => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const pct = (e.clientX - rect.left) / rect.width;
-              if (audioRef.current) audioRef.current.currentTime = pct * duration;
-            }}
-          >
-            <div style={{ height: '100%', width: `${duration ? (progress / duration) * 100 : 0}%`, background: '#ff8c00', borderRadius: '2px', transition: 'width 0.5s linear' }} />
+          {/* Progress */}
+          <div onClick={e => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            if (audioRef.current) audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
+          }} style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginBottom: '10px', cursor: 'pointer' }}>
+            <div style={{ height: '100%', width: `${duration ? (progress / duration) * 100 : 0}%`, background: 'linear-gradient(90deg, #ff6a00, #ff8c00)', borderRadius: '2px', transition: 'width 0.5s linear' }} />
           </div>
 
           <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Track info */}
+            {/* Artwork */}
+            {currentAlbum?.artworkUrl && (
+              <img src={currentAlbum.artworkUrl} alt="" style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
+            )}
+            {/* Info */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: '13px',
-                fontWeight: 700,
-                color: '#ff8c00',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#ff8c00', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {cleanName(currentTrack.name)}
               </div>
               <div style={{ fontSize: '11px', color: '#555' }}>
-                {formatTime(progress)} / {formatTime(duration)}
+                {currentAlbum?.artistName || ''} • {fmt(progress)} / {fmt(duration)}
               </div>
             </div>
-
             {/* Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <button onClick={playPrev} style={ctrlBtn} disabled={queueIndex === 0}>⏮</button>
-              <button
-                onClick={togglePlay}
-                style={{
-                  ...ctrlBtn,
-                  width: '44px',
-                  height: '44px',
-                  background: '#ff8c00',
-                  color: '#000',
-                  fontSize: '18px',
-                  borderRadius: '50%',
-                  border: 'none',
-                }}
-              >
+              <button onClick={playPrev} disabled={queueIndex === 0} style={ctrlBtn}>⏮</button>
+              <button onClick={togglePlay} style={{ ...ctrlBtn, width: '46px', height: '46px', background: '#ff8c00', color: '#000', fontSize: '18px', borderRadius: '50%', border: 'none' }}>
                 {playing ? '⏸' : '▶'}
               </button>
-              <button onClick={playNext} style={ctrlBtn} disabled={queueIndex === queue.length - 1}>⏭</button>
+              <button onClick={playNext} disabled={queueIndex === tracks.length - 1} style={ctrlBtn}>⏭</button>
             </div>
-
             {/* Volume */}
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={e => {
-                const v = parseFloat(e.target.value);
-                setVolume(v);
-                if (audioRef.current) audioRef.current.volume = v;
-              }}
+            <input type="range" min={0} max={1} step={0.01} value={volume}
+              onChange={e => { const v = parseFloat(e.target.value); setVolume(v); if (audioRef.current) audioRef.current.volume = v; }}
               style={{ width: '70px', accentColor: '#ff8c00' }}
             />
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.6; }
+        }
+        button:disabled { opacity: 0.3; cursor: default; }
+      `}</style>
     </div>
   );
 }
 
 const ctrlBtn: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.08)',
-  border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: '8px',
-  color: '#fff',
-  cursor: 'pointer',
-  width: '36px',
-  height: '36px',
-  fontSize: '14px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: '8px', color: '#fff', cursor: 'pointer',
+  width: '38px', height: '38px', fontSize: '14px',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
