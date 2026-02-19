@@ -35,19 +35,22 @@ export default async function handler(req, res) {
     const data = await listRes.json();
     const allFiles = data.files || [];
 
-    // Folders = files with directory content type or ending in /
+    // Build public URL — encode each path segment individually
+    const makeUrl = (fileName) => {
+      const encoded = fileName.split('/').map(seg => encodeURIComponent(seg)).join('/');
+      return `https://f001.backblazeb2.com/file/${bucket}/${encoded}`;
+    };
+
     const folders = allFiles
       .filter(f => f.contentType === 'application/x-directory' || f.fileName.endsWith('/'))
       .map(f => {
         const fullPrefix = f.fileName.endsWith('/') ? f.fileName : f.fileName + '/';
-        // Name is just the last segment
         const parts = fullPrefix.split('/').filter(Boolean);
         const name = parts[parts.length - 1];
         return { type: 'folder', name, prefix: fullPrefix };
       })
       .filter(f => f.name.length > 0);
 
-    // Audio files
     const audioFiles = allFiles
       .filter(f => f.fileName.match(/\.(mp3|flac|wav|ogg|m4a|aac)$/i))
       .map(f => ({
@@ -55,16 +58,15 @@ export default async function handler(req, res) {
         name: f.fileName.split('/').pop() || f.fileName,
         fileName: f.fileName,
         size: f.contentLength,
-        url: `https://f001.backblazeb2.com/file/${bucket}/${f.fileName.split('/').map(encodeURIComponent).join('/')}`,
+        url: makeUrl(f.fileName),
       }));
 
-    // Image files for artwork
     const images = allFiles
       .filter(f => f.fileName.match(/\.(jpg|jpeg|png)$/i))
       .map(f => ({
         name: f.fileName.split('/').pop() || f.fileName,
         fileName: f.fileName,
-        url: `https://f001.backblazeb2.com/file/${bucket}/${f.fileName.split('/').map(encodeURIComponent).join('/')}`,
+        url: makeUrl(f.fileName),
       }));
 
     res.status(200).json({ folders, files: audioFiles, images, prefix });

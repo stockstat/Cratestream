@@ -2,32 +2,39 @@ import { useState, useRef, useEffect } from 'react';
 
 interface FolderItem { type: 'folder'; name: string; prefix: string; }
 interface FileItem { type: 'file'; name: string; fileName: string; size: number; url: string; }
-interface ImageItem { name: string; fileName: string; url: string; }
-interface Album { folder: FolderItem; artworkUrl: string | null; artistName: string; albumName: string; loaded: boolean; }
+interface Album { 
+  realFolder: FolderItem;   // the deep folder with real name + mp3s + jpg
+  artworkUrl: string | null; 
+  artistName: string; 
+  albumName: string; 
+  loaded: boolean; 
+}
 interface BreadcrumbEntry { name: string; prefix: string; type: 'root' | 'year' | 'album'; }
 
 export function WebPlayerPage() {
-  const [view, setView]                   = useState<'years' | 'albums' | 'tracks'>('years');
-  const [years, setYears]                 = useState<FolderItem[]>([]);
-  const [albums, setAlbums]               = useState<Album[]>([]);
-  const [tracks, setTracks]               = useState<FileItem[]>([]);
-  const [currentAlbum, setCurrentAlbum]   = useState<Album | null>(null);
-  const [loading, setLoading]             = useState(false);
-  const [loadingAlbums, setLoadingAlbums] = useState(false);
-  const [error, setError]                 = useState('');
-  const [breadcrumbs, setBreadcrumbs]     = useState<BreadcrumbEntry[]>([{ name: 'All Years', prefix: '', type: 'root' }]);
-  const [currentTrack, setCurrentTrack]   = useState<FileItem | null>(null);
-  const [playing, setPlaying]             = useState(false);
-  const [progress, setProgress]           = useState(0);
-  const [duration, setDuration]           = useState(0);
-  const [volume, setVolume]               = useState(1);
-  const [queueIndex, setQueueIndex]       = useState(0);
-  const [search, setSearch]               = useState('');
+  const [view, setView]                     = useState<'years' | 'albums' | 'tracks'>('years');
+  const [years, setYears]                   = useState<FolderItem[]>([]);
+  const [albums, setAlbums]                 = useState<Album[]>([]);
+  const [tracks, setTracks]                 = useState<FileItem[]>([]);
+  const [currentAlbum, setCurrentAlbum]     = useState<Album | null>(null);
+  const [loading, setLoading]               = useState(false);
+  const [loadingAlbums, setLoadingAlbums]   = useState(false);
+  const [artworkLoading, setArtworkLoading] = useState(false);
+  const [error, setError]                   = useState('');
+  const [breadcrumbs, setBreadcrumbs]       = useState<BreadcrumbEntry[]>([{ name: 'All Years', prefix: '', type: 'root' }]);
+  const [currentTrack, setCurrentTrack]     = useState<FileItem | null>(null);
+  const [playing, setPlaying]               = useState(false);
+  const [progress, setProgress]             = useState(0);
+  const [duration, setDuration]             = useState(0);
+  const [volume, setVolume]                 = useState(1);
+  const [queueIndex, setQueueIndex]         = useState(0);
+  const [search, setSearch]                 = useState('');
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const browse = async (prefix: string) => {
-    const res = await fetch(`/api/browse?prefix=${encodeURIComponent(prefix)}`);
+  const browse = async (prefix: string, signal?: AbortSignal) => {
+    const res = await fetch(`/api/browse?prefix=${encodeURIComponent(prefix)}`, { signal });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     return data;
@@ -39,64 +46,109 @@ export function WebPlayerPage() {
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
-  // Parse "Artist - Album.jpg" → {artist, album}
-  const parseJpg = (name: string) => {
-    const noExt = name.replace(/\.(jpg|jpeg|png)$/i, '');
-    const idx = noExt.indexOf(' - ');
-    if (idx > -1) return { artist: noExt.substring(0, idx).trim(), album: noExt.substring(idx + 3).trim() };
-    return { artist: '', album: noExt };
+  // Parse "2 In A Room - (1990) Wiggle It [320]" → {artist: "2 In A Room", album: "Wiggle It"}
+  const parseFolderName = (name: string) => {
+    const idx = name.indexOf(' - ');
+    if (idx > -1) {
+      const artist = name.substring(0, idx).trim();
+      // Clean up album: remove year like "(1990)" and quality like "[320]"
+      const rawAlbum = name.substring(idx + 3).trim();
+      const album = rawAlbum.replace(/\(\d{4}\)\s*/g, '').replace(/\[\d+\]\s*/g, '').trim();
+      return { artist, album };
+    }
+    // No dash — just clean up the name
+    const album = name.replace(/\(\d{4}\)\s*/g, '').replace(/\[\d+\]\s*/g, '').trim();
+    return { artist: '', album };
   };
 
   const openYear = async (year: FolderItem) => {
+    if (abortRef.current) abortRef.current.abort();
+    const abort = new AbortController();
+    abortRef.current = abort;
+
     setLoadingAlbums(true);
+    setArtworkLoading(false);
     setSearch('');
     setView('albums');
+    setAlbums([]);
     setBreadcrumbs([
       { name: 'All Years', prefix: '', type: 'root' },
       { name: year.name, prefix: year.prefix, type: 'year' },
     ]);
 
     try {
-      const yearData = await browse(year.prefix);
-      const albumFolders: FolderItem[] = yearData.folders;
+      // Step 1: Get abbreviated folders in the year
+      const yearData = await browse(year.prefix, abort.signal);
+      const abbrevFolders: FolderItem[] = yearData.folders;
 
-      // Show albums immediately with placeholders
-      const placeholders: Album[] = albumFolders.map(f => ({
-        folder: f, artworkUrl: null, artistName: '', albumName: f.name, loaded: false,
-      }));
+      // Show placeholder albums immediately
+      const placeholders: Album[] = abbrevFolders.map(f => {
+        const parsed = parseFolderName(f.name);
+        return { realFolder: f, artworkUrl: null, artistName: parsed.artist, albumName: parsed.album || f.name, loaded: false };
+      });
       setAlbums(placeholders);
       setLoadingAlbums(false);
+      setArtworkLoading(true);
 
-      // Now load artwork in background — 8 at a time
-      const chunkSize = 8;
-      for (let i = 0; i < albumFolders.length; i += chunkSize) {
-        const chunk = albumFolders.slice(i, i + chunkSize);
-        const results = await Promise.all(chunk.map(async (folder, ci) => {
+      // Step 2: For each abbreviated folder, browse one level deeper to get real album folder
+      const chunkSize = 4;
+      for (let i = 0; i < abbrevFolders.length; i += chunkSize) {
+        if (abort.signal.aborted) break;
+        const chunk = abbrevFolders.slice(i, i + chunkSize);
+
+        const results = await Promise.all(chunk.map(async (abbrevFolder) => {
+          if (abort.signal.aborted) return null;
           try {
-            const albumData = await browse(folder.prefix);
-            const jpg: ImageItem | undefined = albumData.images?.[0];
-            const parsed = jpg ? parseJpg(jpg.name) : { artist: '', album: folder.name };
-            return {
-              folder,
-              artworkUrl: jpg?.url || null,
-              artistName: parsed.artist,
-              albumName: parsed.album || folder.name,
-              loaded: true,
-            };
-          } catch {
-            return { folder, artworkUrl: null, artistName: '', albumName: folder.name, loaded: true };
+            // Browse into the abbreviated folder to find the real album subfolder
+            const innerData = await browse(abbrevFolder.prefix, abort.signal);
+            
+            // The real album folder is the first subfolder inside
+            const realFolder: FolderItem | undefined = innerData.folders?.[0];
+            
+            if (realFolder) {
+              // Browse into real folder to get the jpg
+              const albumData = await browse(realFolder.prefix, abort.signal);
+              const jpg = albumData.images?.[0];
+              const parsed = parseFolderName(realFolder.name);
+              return {
+                realFolder,  // use the REAL folder for track browsing
+                artworkUrl: jpg?.url || null,
+                artistName: parsed.artist,
+                albumName: parsed.album || realFolder.name,
+                loaded: true,
+              } as Album;
+            } else {
+              // No subfolder — files are directly in abbrev folder
+              const jpg = innerData.images?.[0];
+              const parsed = parseFolderName(abbrevFolder.name);
+              return {
+                realFolder: abbrevFolder,
+                artworkUrl: jpg?.url || null,
+                artistName: parsed.artist,
+                albumName: parsed.album || abbrevFolder.name,
+                loaded: true,
+              } as Album;
+            }
+          } catch (e: any) {
+            if (e.name === 'AbortError') return null;
+            return { realFolder: abbrevFolder, artworkUrl: null, artistName: '', albumName: abbrevFolder.name, loaded: true } as Album;
           }
         }));
 
-        setAlbums(prev => {
-          const updated = [...prev];
-          results.forEach((r, ri) => { updated[i + ri] = r; });
-          return updated;
-        });
+        if (!abort.signal.aborted) {
+          setAlbums(prev => {
+            const updated = [...prev];
+            results.forEach((r, ri) => { if (r) updated[i + ri] = r; });
+            return updated;
+          });
+          if (i + chunkSize < abbrevFolders.length) await new Promise(r => setTimeout(r, 150));
+        }
       }
+      setArtworkLoading(false);
     } catch (e: any) {
-      setError(e.message);
+      if (e.name !== 'AbortError') setError(e.message);
       setLoadingAlbums(false);
+      setArtworkLoading(false);
     }
   };
 
@@ -106,11 +158,11 @@ export function WebPlayerPage() {
     setCurrentAlbum(album);
     setBreadcrumbs(prev => [
       ...prev.slice(0, 2),
-      { name: album.albumName || album.folder.name, prefix: album.folder.prefix, type: 'album' },
+      { name: album.albumName || album.realFolder.name, prefix: album.realFolder.prefix, type: 'album' },
     ]);
     setView('tracks');
     try {
-      const data = await browse(album.folder.prefix);
+      const data = await browse(album.realFolder.prefix);
       setTracks(data.files);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
@@ -150,17 +202,14 @@ export function WebPlayerPage() {
   const cleanName = (n: string) => n.replace(/\.(mp3|flac|wav|ogg|m4a|aac)$/i,'').replace(/^\d+\s*[-_.]\s*/,'').trim();
 
   const filteredYears  = years.filter(y => !search || y.name.includes(search));
-  const filteredAlbums = albums.filter(a => !search || a.albumName.toLowerCase().includes(search.toLowerCase()) || a.artistName.toLowerCase().includes(search.toLowerCase()));
+  const filteredAlbums = albums.filter(a => !search ||
+    a.albumName.toLowerCase().includes(search.toLowerCase()) ||
+    a.artistName.toLowerCase().includes(search.toLowerCase())
+  );
   const filteredTracks = tracks.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase()));
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '10px 14px', borderRadius: '10px', boxSizing: 'border-box',
-    border: '1px solid rgba(255,140,0,0.2)', background: 'rgba(255,255,255,0.05)',
-    color: '#fff', fontSize: '14px', outline: 'none',
-  };
-
   return (
-    <div style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', color: '#fff', fontFamily: 'system-ui,-apple-system,sans-serif' }}>
+    <div style={{ backgroundColor:'#0a0a0a', minHeight:'100vh', color:'#fff', fontFamily:'system-ui,-apple-system,sans-serif' }}>
       <audio ref={audioRef}
         onTimeUpdate={() => { if (audioRef.current) setProgress(audioRef.current.currentTime); }}
         onLoadedMetadata={() => { if (audioRef.current) setDuration(audioRef.current.duration); }}
@@ -174,6 +223,7 @@ export function WebPlayerPage() {
           <div style={{ fontWeight:900, fontSize:'15px', color:'#ff8c00', fontFamily:'Impact,sans-serif', letterSpacing:'1px' }}>CRATESTREAM</div>
           <div style={{ fontSize:'10px', color:'#666' }}>The Vault of 90s Hip-Hop</div>
         </div>
+        {artworkLoading && <div style={{ marginLeft:'auto', fontSize:'11px', color:'#555', animation:'pulse 1.5s infinite' }}>Loading artwork...</div>}
       </div>
 
       <div style={{ maxWidth:'900px', margin:'0 auto', padding:'0 0 130px 0' }}>
@@ -185,8 +235,8 @@ export function WebPlayerPage() {
               {i > 0 && <span style={{ color:'#444' }}>›</span>}
               <button onClick={() => navigateToCrumb(i)} style={{
                 background:'none', border:'none', padding:'2px 6px', borderRadius:'4px',
-                color: i === breadcrumbs.length-1 ? '#ff8c00' : '#777',
-                fontWeight: i === breadcrumbs.length-1 ? 700 : 400,
+                color: i===breadcrumbs.length-1 ? '#ff8c00' : '#777',
+                fontWeight: i===breadcrumbs.length-1 ? 700 : 400,
                 fontSize:'13px', cursor:'pointer',
               }}>{crumb.name}</button>
             </span>
@@ -197,7 +247,8 @@ export function WebPlayerPage() {
         <div style={{ padding:'0 16px 12px' }}>
           <input type="text"
             placeholder={view==='years' ? 'Search years...' : view==='albums' ? 'Search artist or album...' : 'Search tracks...'}
-            value={search} onChange={e => setSearch(e.target.value)} style={inputStyle}
+            value={search} onChange={e => setSearch(e.target.value)}
+            style={{ width:'100%', padding:'10px 14px', borderRadius:'10px', boxSizing:'border-box' as any, border:'1px solid rgba(255,140,0,0.2)', background:'rgba(255,255,255,0.05)', color:'#fff', fontSize:'14px', outline:'none' }}
           />
         </div>
 
@@ -214,8 +265,7 @@ export function WebPlayerPage() {
                     background:'linear-gradient(135deg,rgba(255,140,0,0.12),rgba(255,100,0,0.06))',
                     border:'1px solid rgba(255,140,0,0.25)', borderRadius:'12px',
                     padding:'20px 10px', color:'#fff', cursor:'pointer', textAlign:'center',
-                    fontSize:'22px', fontWeight:900, fontFamily:'Impact,sans-serif', letterSpacing:'1px',
-                    transition:'all 0.15s',
+                    fontSize:'22px', fontWeight:900, fontFamily:'Impact,sans-serif', letterSpacing:'1px', transition:'all 0.15s',
                   }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background='rgba(255,140,0,0.22)'; (e.currentTarget as HTMLButtonElement).style.transform='scale(1.04)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background='linear-gradient(135deg,rgba(255,140,0,0.12),rgba(255,100,0,0.06))'; (e.currentTarget as HTMLButtonElement).style.transform='scale(1)'; }}
@@ -232,9 +282,10 @@ export function WebPlayerPage() {
             <div style={{ fontSize:'11px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>
               {loadingAlbums ? 'Loading albums...' : `${filteredAlbums.length} Albums`}
             </div>
+            {loadingAlbums && <div style={{ textAlign:'center', padding:'40px', color:'#ff8c00' }}>Loading albums...</div>}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:'12px' }}>
               {filteredAlbums.map(album => (
-                <button key={album.folder.prefix} onClick={() => openAlbum(album)} style={{
+                <button key={album.realFolder.prefix} onClick={() => openAlbum(album)} style={{
                   background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
                   borderRadius:'10px', padding:'0', color:'#fff', cursor:'pointer',
                   textAlign:'left', overflow:'hidden', transition:'all 0.15s',
@@ -242,15 +293,17 @@ export function WebPlayerPage() {
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(1.03)'; (e.currentTarget as HTMLButtonElement).style.borderColor='rgba(255,140,0,0.5)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(1)'; (e.currentTarget as HTMLButtonElement).style.borderColor='rgba(255,255,255,0.08)'; }}
                 >
-                  <div style={{ width:'100%', aspectRatio:'1', overflow:'hidden', background:'#151515', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <div style={{ width:'100%', aspectRatio:'1', overflow:'hidden', background:'#111', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'36px' }}>
                     {album.artworkUrl
-                      ? <img src={album.artworkUrl} alt={album.albumName} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
-                      : <div style={{ fontSize: album.loaded ? '36px' : '20px', color: album.loaded ? '#333' : '#222' }}>{album.loaded ? '💿' : '⏳'}</div>
+                      ? <img src={album.artworkUrl} alt={album.albumName} style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }}
+                        />
+                      : <span style={{ color: album.loaded ? '#333' : '#1a1a1a' }}>{album.loaded ? '💿' : '⏳'}</span>
                     }
                   </div>
                   <div style={{ padding:'8px 10px 10px' }}>
                     <div style={{ fontSize:'12px', fontWeight:700, color:'#fff', lineHeight:'1.3', marginBottom:'3px', overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>
-                      {album.albumName || album.folder.name}
+                      {album.albumName || album.realFolder.name}
                     </div>
                     {album.artistName && <div style={{ fontSize:'11px', color:'#ff8c00', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{album.artistName}</div>}
                   </div>
@@ -264,10 +317,8 @@ export function WebPlayerPage() {
         {view === 'tracks' && currentAlbum && (
           <div style={{ padding:'0 16px' }}>
             <div style={{ display:'flex', gap:'16px', marginBottom:'20px', alignItems:'flex-start' }}>
-              <div style={{ width:'100px', height:'100px', flexShrink:0, borderRadius:'8px', overflow:'hidden', background:'#151515', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                {currentAlbum.artworkUrl
-                  ? <img src={currentAlbum.artworkUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                  : <div style={{ fontSize:'40px' }}>💿</div>}
+              <div style={{ width:'100px', height:'100px', flexShrink:0, borderRadius:'8px', overflow:'hidden', background:'#151515', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'40px' }}>
+                {currentAlbum.artworkUrl ? <img src={currentAlbum.artworkUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : '💿'}
               </div>
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:'18px', fontWeight:900, color:'#fff', marginBottom:'4px', lineHeight:'1.2' }}>{currentAlbum.albumName}</div>
@@ -332,10 +383,14 @@ export function WebPlayerPage() {
           </div>
         </div>
       )}
-      <style>{`button:disabled{opacity:0.3;cursor:default;}`}</style>
+      <style>{`
+        button:disabled { opacity:0.3; cursor:default; }
+        @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+      `}</style>
     </div>
   );
 }
+
 const ctrlBtn: React.CSSProperties = {
   background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.1)',
   borderRadius:'8px', color:'#fff', cursor:'pointer', width:'38px', height:'38px',
