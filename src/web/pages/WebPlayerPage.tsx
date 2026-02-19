@@ -21,11 +21,15 @@ export function WebPlayerPage() {
   const [indexLoading, setIndexLoading] = useState(true);
   const [view, setView]                 = useState<ViewType>('home');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [tracks, setTracks]             = useState<FileItem[]>([]);
   const [currentAlbum, setCurrentAlbum] = useState<AlbumEntry | null>(null);
   const [tracksLoading, setTracksLoading] = useState(false);
   const [search, setSearch]             = useState('');
   const [activeLetter, setActiveLetter] = useState('A');
+  const [homeTab, setHomeTab]           = useState<'artists' | 'years'>('artists');
+
+  // Playback state
   const [currentTrack, setCurrentTrack] = useState<FileItem | null>(null);
   const [playing, setPlaying]           = useState(false);
   const [progress, setProgress]         = useState(0);
@@ -34,13 +38,12 @@ export function WebPlayerPage() {
   const [queue, setQueue]               = useState<FileItem[]>([]);
   const [queueIndex, setQueueIndex]     = useState(0);
   const [shuffle, setShuffle]           = useState(false);
-  const [homeTab, setHomeTab]           = useState<'artists' | 'years'>('artists');
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [isYearShuffle, setIsYearShuffle] = useState(false); // true = cross-album year shuffle
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const letterRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const yearQueueRef = useRef<{albums: AlbumEntry[], usedAlbums: Set<string>} | null>(null);
 
-  // Load index on mount
   useEffect(() => {
     fetch(INDEX_URL)
       .then(r => r.json())
@@ -48,11 +51,7 @@ export function WebPlayerPage() {
       .catch(() => setIndexLoading(false));
   }, []);
 
-  // Derived data
-  const years = useMemo(() => {
-    const ys = [...new Set(index.map(a => a.year))].filter(Boolean).sort();
-    return ys;
-  }, [index]);
+  const years = useMemo(() => [...new Set(index.map(a => a.year))].filter(Boolean).sort(), [index]);
 
   const artists = useMemo(() => {
     const map: Record<string, AlbumEntry[]> = {};
@@ -71,12 +70,6 @@ export function WebPlayerPage() {
     return sortedArtists.filter(a => a.toLowerCase().includes(search.toLowerCase()));
   }, [sortedArtists, search]);
 
-  const yearAlbums = useMemo(() => {
-    if (!selectedYear) return [];
-    return index.filter(a => a.year === selectedYear);
-  }, [index, selectedYear]);
-
-  // Get letter for artist name
   const getLetterKey = (name: string) => {
     const c = name.replace(/^(the |a |an )/i, '')[0]?.toUpperCase();
     return c && /[A-Z]/.test(c) ? c : '#';
@@ -97,40 +90,117 @@ export function WebPlayerPage() {
     letterRefs.current[letter]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // Browse tracks from Backblaze
+  // Fetch tracks for an album
+  const fetchTracks = async (album: AlbumEntry): Promise<FileItem[]> => {
+    const res = await fetch(`/api/browse?prefix=${encodeURIComponent(album.folderPrefix)}`);
+    const data = await res.json();
+    return data.files || [];
+  };
+
   const openAlbum = async (album: AlbumEntry) => {
     setCurrentAlbum(album);
     setTracksLoading(true);
     setView('tracks');
+    setIsYearShuffle(false);
+    yearQueueRef.current = null;
     try {
-      const res = await fetch(`/api/browse?prefix=${encodeURIComponent(album.folderPrefix)}`);
-      const data = await res.json();
-      setTracks(data.files || []);
+      const files = await fetchTracks(album);
+      setTracks(files);
     } catch { setTracks([]); }
     finally { setTracksLoading(false); }
   };
 
   const openArtist = (artist: string) => {
     setSelectedArtist(artist);
+    setSelectedYear(null);
     setView('artist');
     setSearch('');
   };
 
-  // Shuffle year — collect all albums in year and play randomly
+  // ── YEAR SHUFFLE ──
+  // Builds a cross-album queue: fetch one random album, play a random track,
+  // when track ends fetch another random album from the year
   const shuffleYear = async (year: number) => {
-    const yearAlbs = index.filter(a => a.year === year);
-    if (!yearAlbs.length) return;
-    const randomAlbum = yearAlbs[Math.floor(Math.random() * yearAlbs.length)];
-    await openAlbum(randomAlbum);
-    setShuffle(true);
+    const yearAlbums = index.filter(a => a.year === year);
+    if (!yearAlbums.length) return;
+
+    setIsYearShuffle(true);
+    yearQueueRef.current = { albums: [...yearAlbums], usedAlbums: new Set() };
+
+    // Pick first random album
+    await playNextYearAlbum(yearAlbums, new Set());
   };
 
-  // Playback
+  const playNextYearAlbum = async (albums: AlbumEntry[], used: Set<string>) => {
+    // Filter out used albums, reset if all used
+    let available = albums.filter(a => !used.has(a.folderPrefix));
+    if (!available.length) {
+      used.clear();
+      available = albums;
+    }
+
+    const randomAlbum = available[Math.floor(Math.random() * available.length)];
+    used.add(randomAlbum.folderPrefix);
+
+    try {
+      const files = await fetchTracks(randomAlbum);
+      if (!files.length) {
+        // Try another album
+        return playNextYearAlbum(albums, used);
+      }
+
+      // Pick random track from album
+      const shuffledFiles = [...files].sort(() => Math.random() - 0.5);
+
+      setCurrentAlbum(randomAlbum);
+      setTracks(files);
+      setQueue(shuffledFiles);
+      setQueueIndex(0);
+      setCurrentTrack(shuffledFiles[0]);
+      setPlaying(true);
+      setShuffle(true);
+
+      if (audioRef.current) {
+        audioRef.current.src = shuffledFiles[0].url;
+        audioRef.current.play();
+      }
+
+      // Update ref with current state
+      if (yearQueueRef.current) {
+        yearQueueRef.current.usedAlbums = used;
+      }
+    } catch {
+      // Try another album on error
+      playNextYearAlbum(albums, used);
+    }
+  };
+
+  // When a track ends during year shuffle, jump to new random album
+  const handleTrackEnd = () => {
+    if (isYearShuffle && yearQueueRef.current) {
+      const { albums, usedAlbums } = yearQueueRef.current;
+      playNextYearAlbum(albums, usedAlbums);
+    } else {
+      playNext();
+    }
+  };
+
+  // Skip during year shuffle = new random album
+  const handleSkipNext = () => {
+    if (isYearShuffle && yearQueueRef.current) {
+      const { albums, usedAlbums } = yearQueueRef.current;
+      playNextYearAlbum(albums, usedAlbums);
+    } else {
+      playNext();
+    }
+  };
+
   const playTracks = (trackList: FileItem[], startIndex: number, shuffled = false) => {
+    setIsYearShuffle(false);
+    yearQueueRef.current = null;
     let list = [...trackList];
     let idx = startIndex;
     if (shuffled) {
-      // Fisher-Yates shuffle
       for (let i = list.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [list[i], list[j]] = [list[j], list[i]];
@@ -141,12 +211,12 @@ export function WebPlayerPage() {
     setQueueIndex(idx);
     setCurrentTrack(list[idx]);
     setPlaying(true);
+    setShuffle(shuffled);
     if (audioRef.current) { audioRef.current.src = list[idx].url; audioRef.current.play(); }
   };
 
   const playNext = () => {
-    let next = queueIndex + 1;
-    if (shuffle && next >= queue.length) next = 0;
+    const next = queueIndex + 1;
     if (next < queue.length) {
       setCurrentTrack(queue[next]); setQueueIndex(next);
       if (audioRef.current) { audioRef.current.src = queue[next].url; audioRef.current.play(); }
@@ -169,13 +239,14 @@ export function WebPlayerPage() {
   const cleanName = (n: string) => n.replace(/\.(mp3|flac|wav|ogg|m4a|aac)$/i,'').replace(/^\d+\s*[-_.]\s*/,'').trim();
 
   const artistAlbums = selectedArtist ? (artists[selectedArtist] || []) : [];
+  const yearAlbums = selectedYear ? index.filter(a => a.year === selectedYear) : [];
 
   return (
-    <div style={{ backgroundColor:'#0a0a0a', minHeight:'100vh', color:'#fff', fontFamily:'system-ui,-apple-system,sans-serif', overflowX:'hidden' }}>
+    <div className="web-player-root" style={{ backgroundColor:'#0a0a0a', minHeight:'100vh', color:'#fff', fontFamily:'system-ui,-apple-system,sans-serif' }}>
       <audio ref={audioRef}
         onTimeUpdate={() => { if (audioRef.current) setProgress(audioRef.current.currentTime); }}
         onLoadedMetadata={() => { if (audioRef.current) setDuration(audioRef.current.duration); }}
-        onEnded={playNext}
+        onEnded={handleTrackEnd}
         onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
       />
 
@@ -187,18 +258,15 @@ export function WebPlayerPage() {
           <div style={{ fontSize:'10px', color:'#666' }}>The Vault of 90s Hip-Hop</div>
         </div>
         {view !== 'home' && (
-          <button onClick={() => { setView('home'); setSearch(''); setSelectedArtist(null); }} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'8px', color:'#aaa', padding:'6px 12px', cursor:'pointer', fontSize:'13px' }}>
-            ← Home
-          </button>
+          <button onClick={() => { setView('home'); setSearch(''); setSelectedArtist(null); }} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'8px', color:'#aaa', padding:'6px 12px', cursor:'pointer', fontSize:'13px' }}>← Home</button>
         )}
       </div>
 
       <div style={{ maxWidth:'900px', margin:'0 auto', padding:'0 0 130px 0' }}>
 
-        {/* ── HOME VIEW ── */}
+        {/* ── HOME ── */}
         {view === 'home' && (
           <div>
-            {/* Search */}
             <div style={{ padding:'12px 16px 8px' }}>
               <input type="text" placeholder="Search artists, albums..."
                 value={search} onChange={e => setSearch(e.target.value)}
@@ -206,14 +274,12 @@ export function WebPlayerPage() {
               />
             </div>
 
-            {/* Tabs */}
             {!search && (
               <div style={{ display:'flex', padding:'4px 16px 0', gap:'4px', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                 {(['artists','years'] as const).map(tab => (
                   <button key={tab} onClick={() => setHomeTab(tab)} style={{
                     background:'none', border:'none', padding:'10px 16px', cursor:'pointer',
-                    color: homeTab===tab ? '#ff8c00' : '#555',
-                    fontWeight: homeTab===tab ? 700 : 400,
+                    color: homeTab===tab ? '#ff8c00' : '#555', fontWeight: homeTab===tab ? 700 : 400,
                     fontSize:'14px', borderBottom: homeTab===tab ? '2px solid #ff8c00' : '2px solid transparent',
                     textTransform:'capitalize',
                   }}>{tab}</button>
@@ -224,25 +290,17 @@ export function WebPlayerPage() {
             {indexLoading ? (
               <div style={{ textAlign:'center', padding:'60px', color:'#ff8c00' }}>Loading library...</div>
             ) : search ? (
-              /* Search results */
               <div style={{ padding:'12px 16px' }}>
-                <div style={{ fontSize:'11px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>
-                  {filteredArtists.length} Artists found
-                </div>
+                <div style={{ fontSize:'11px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>{filteredArtists.length} Artists found</div>
                 {filteredArtists.slice(0, 50).map(artist => (
                   <button key={artist} onClick={() => openArtist(artist)} style={{
                     display:'flex', alignItems:'center', gap:'12px', width:'100%',
                     background:'rgba(255,255,255,0.03)', border:'1px solid transparent',
                     borderRadius:'8px', padding:'10px 14px', color:'#fff', cursor:'pointer',
-                    marginBottom:'2px', textAlign:'left', transition:'all 0.1s',
-                  }}
-                    onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background='rgba(255,140,0,0.1)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,0.03)'}
-                  >
+                    marginBottom:'2px', textAlign:'left',
+                  }}>
                     <div style={{ width:'40px', height:'40px', borderRadius:'6px', background:'#1a1a1a', overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px' }}>
-                      {artists[artist]?.[0]?.artworkUrl
-                        ? <img src={artists[artist][0].artworkUrl!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
-                        : '🎤'}
+                      {artists[artist]?.[0]?.artworkUrl ? <img src={artists[artist][0].artworkUrl!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} /> : '🎤'}
                     </div>
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:'14px', fontWeight:600 }}>{artist}</div>
@@ -251,32 +309,26 @@ export function WebPlayerPage() {
                     <span style={{ color:'#444' }}>›</span>
                   </button>
                 ))}
-                {filteredArtists.length > 50 && <div style={{ textAlign:'center', padding:'12px', color:'#555', fontSize:'12px' }}>Showing 50 of {filteredArtists.length} — type more to narrow results</div>}
+                {filteredArtists.length > 50 && <div style={{ textAlign:'center', padding:'12px', color:'#555', fontSize:'12px' }}>Showing 50 of {filteredArtists.length} — type more to narrow</div>}
               </div>
             ) : homeTab === 'artists' ? (
-              /* Artist A-Z list with alphabet scroller */
               <div style={{ display:'flex' }}>
-                <div style={{ flex:1, overflowY:'auto', padding:'0 16px' }}>
+                <div style={{ flex:1, padding:'0 8px 0 16px' }}>
                   {ALPHABET.map(letter => {
-                    const letterArtists = artistsByLetter[letter];
-                    if (!letterArtists?.length) return null;
+                    const la = artistsByLetter[letter];
+                    if (!la?.length) return null;
                     return (
                       <div key={letter} ref={el => { letterRefs.current[letter] = el; }}>
                         <div style={{ fontSize:'13px', fontWeight:900, color:'#ff8c00', padding:'12px 0 6px', fontFamily:'Impact,sans-serif', letterSpacing:'2px' }}>{letter}</div>
-                        {letterArtists.map(artist => (
+                        {la.map(artist => (
                           <button key={artist} onClick={() => openArtist(artist)} style={{
                             display:'flex', alignItems:'center', gap:'12px', width:'100%',
                             background:'rgba(255,255,255,0.02)', border:'1px solid transparent',
                             borderRadius:'8px', padding:'9px 12px', color:'#fff', cursor:'pointer',
-                            marginBottom:'2px', textAlign:'left', transition:'all 0.1s',
-                          }}
-                            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background='rgba(255,140,0,0.08)'}
-                            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background='rgba(255,255,255,0.02)'}
-                          >
+                            marginBottom:'2px', textAlign:'left',
+                          }}>
                             <div style={{ width:'38px', height:'38px', borderRadius:'6px', background:'#161616', overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px' }}>
-                              {artists[artist]?.[0]?.artworkUrl
-                                ? <img src={artists[artist][0].artworkUrl!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
-                                : '🎤'}
+                              {artists[artist]?.[0]?.artworkUrl ? <img src={artists[artist][0].artworkUrl!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} /> : '🎤'}
                             </div>
                             <div style={{ flex:1, minWidth:0 }}>
                               <div style={{ fontSize:'13px', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{artist}</div>
@@ -289,12 +341,12 @@ export function WebPlayerPage() {
                     );
                   })}
                 </div>
-
                 {/* Alphabet scroller */}
-                <div style={{ width:'24px', display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 0', position:'sticky', top:'60px', height:'calc(100vh - 60px)', overflowY:'auto', flexShrink:0 }}>
+                <div style={{ width:'24px', display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 0', position:'sticky', top:'60px', alignSelf:'flex-start', height:'calc(100vh - 130px)', overflowY:'auto', flexShrink:0 }}>
                   {ALPHABET.map(letter => (
                     <button key={letter} onClick={() => scrollToLetter(letter)} style={{
-                      background:'none', border:'none', color: activeLetter===letter ? '#ff8c00' : artistsByLetter[letter]?.length ? '#888' : '#333',
+                      background:'none', border:'none',
+                      color: activeLetter===letter ? '#ff8c00' : artistsByLetter[letter]?.length ? '#777' : '#2a2a2a',
                       fontSize:'10px', fontWeight: activeLetter===letter ? 900 : 400,
                       padding:'2px 0', cursor: artistsByLetter[letter]?.length ? 'pointer' : 'default',
                       lineHeight:'1.4', width:'100%', textAlign:'center',
@@ -303,13 +355,12 @@ export function WebPlayerPage() {
                 </div>
               </div>
             ) : (
-              /* Years tab */
               <div style={{ padding:'12px 16px' }}>
                 <div style={{ fontSize:'11px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>Browse by Year</div>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(90px,1fr))', gap:'10px' }}>
                   {years.map(year => (
                     <div key={year} style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                      <button onClick={() => { setSelectedYear(year); setView('artist'); setSelectedArtist(null); }} style={{
+                      <button onClick={() => { setSelectedYear(year); setSelectedArtist(null); setView('artist'); }} style={{
                         background:'linear-gradient(135deg,rgba(255,140,0,0.12),rgba(255,100,0,0.06))',
                         border:'1px solid rgba(255,140,0,0.25)', borderRadius:'10px',
                         padding:'16px 8px', color:'#fff', cursor:'pointer', textAlign:'center',
@@ -328,19 +379,19 @@ export function WebPlayerPage() {
           </div>
         )}
 
-        {/* ── ARTIST VIEW (albums by artist OR year) ── */}
+        {/* ── ARTIST / YEAR ALBUMS ── */}
         {view === 'artist' && (
           <div style={{ padding:'0 16px' }}>
             <div style={{ padding:'12px 0 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
               <div>
                 <div style={{ fontSize:'22px', fontWeight:900, color:'#fff' }}>{selectedArtist || `${selectedYear}`}</div>
-                <div style={{ fontSize:'12px', color:'#555' }}>{selectedArtist ? artistAlbums.length : yearAlbums.length} albums</div>
+                <div style={{ fontSize:'12px', color:'#555' }}>{(selectedArtist ? artistAlbums : yearAlbums).length} albums</div>
               </div>
               {selectedYear && !selectedArtist && (
                 <button onClick={() => shuffleYear(selectedYear)} style={{
                   background:'rgba(255,140,0,0.15)', border:'1px solid rgba(255,140,0,0.4)',
                   borderRadius:'10px', padding:'10px 18px', color:'#ff8c00',
-                  cursor:'pointer', fontWeight:700, fontSize:'13px', display:'flex', alignItems:'center', gap:'6px',
+                  cursor:'pointer', fontWeight:700, fontSize:'13px',
                 }}>🔀 Shuffle {selectedYear}</button>
               )}
             </div>
@@ -355,14 +406,10 @@ export function WebPlayerPage() {
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform='scale(1)'; (e.currentTarget as HTMLButtonElement).style.borderColor='rgba(255,255,255,0.08)'; }}
                 >
                   <div style={{ width:'100%', aspectRatio:'1', overflow:'hidden', background:'#111', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'36px' }}>
-                    {album.artworkUrl
-                      ? <img src={album.artworkUrl} alt={album.album} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
-                      : '💿'}
+                    {album.artworkUrl ? <img src={album.artworkUrl} alt={album.album} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} /> : '💿'}
                   </div>
                   <div style={{ padding:'8px 10px 10px' }}>
-                    <div style={{ fontSize:'12px', fontWeight:700, color:'#fff', lineHeight:'1.3', marginBottom:'3px', overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>
-                      {album.album}
-                    </div>
+                    <div style={{ fontSize:'12px', fontWeight:700, color:'#fff', lineHeight:'1.3', marginBottom:'3px', overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{album.album}</div>
                     <div style={{ fontSize:'11px', color:'#ff8c00' }}>{album.year}</div>
                   </div>
                 </button>
@@ -371,7 +418,7 @@ export function WebPlayerPage() {
           </div>
         )}
 
-        {/* ── TRACKS VIEW ── */}
+        {/* ── TRACKS ── */}
         {view === 'tracks' && currentAlbum && (
           <div style={{ padding:'0 16px' }}>
             <div style={{ display:'flex', gap:'16px', marginBottom:'20px', alignItems:'flex-start', paddingTop:'12px' }}>
@@ -415,24 +462,33 @@ export function WebPlayerPage() {
       {/* ── PLAYER BAR ── */}
       {currentTrack && (
         <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:200, background:'linear-gradient(180deg,rgba(20,8,0,0.97),rgba(8,3,0,0.99))', borderTop:'2px solid rgba(255,140,0,0.4)', padding:'8px 16px 20px' }}>
+          {/* Progress bar */}
           <div onClick={e => {
             const rect = e.currentTarget.getBoundingClientRect();
             if (audioRef.current) audioRef.current.currentTime = ((e.clientX-rect.left)/rect.width)*duration;
           }} style={{ height:'3px', background:'rgba(255,255,255,0.1)', borderRadius:'2px', marginBottom:'10px', cursor:'pointer' }}>
             <div style={{ height:'100%', width:`${duration?(progress/duration)*100:0}%`, background:'linear-gradient(90deg,#ff6a00,#ff8c00)', borderRadius:'2px', transition:'width 0.5s linear' }} />
           </div>
+
           <div style={{ maxWidth:'900px', margin:'0 auto', display:'flex', alignItems:'center', gap:'12px' }}>
-            {currentAlbum?.artworkUrl && <img src={currentAlbum.artworkUrl} alt="" style={{ width:'44px', height:'44px', borderRadius:'6px', objectFit:'cover', flexShrink:0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />}
+            {currentAlbum?.artworkUrl && (
+              <img src={currentAlbum.artworkUrl} alt="" style={{ width:'44px', height:'44px', borderRadius:'6px', objectFit:'cover', flexShrink:0 }}
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
+            )}
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:'13px', fontWeight:700, color:'#ff8c00', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cleanName(currentTrack.name)}</div>
-              <div style={{ fontSize:'11px', color:'#555' }}>{currentAlbum?.artist} · {fmt(progress)} / {fmt(duration)}</div>
+              <div style={{ fontSize:'13px', fontWeight:700, color:'#ff8c00', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {cleanName(currentTrack.name)}
+              </div>
+              <div style={{ fontSize:'11px', color:'#555' }}>
+                {isYearShuffle ? `🔀 Shuffling ${currentAlbum?.year}` : currentAlbum?.artist || ''} · {fmt(progress)} / {fmt(duration)}
+              </div>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:'6px', flexShrink:0 }}>
-              <button onClick={playPrev} disabled={queueIndex===0 && !shuffle} style={ctrlBtn}>⏮</button>
+              <button onClick={playPrev} disabled={isYearShuffle} style={ctrlBtn}>⏮</button>
               <button onClick={togglePlay} style={{ ...ctrlBtn, width:'46px', height:'46px', background:'#ff8c00', color:'#000', fontSize:'18px', borderRadius:'50%', border:'none' }}>
                 {playing ? '⏸' : '▶'}
               </button>
-              <button onClick={playNext} style={ctrlBtn}>⏭</button>
+              <button onClick={handleSkipNext} style={ctrlBtn}>⏭</button>
               <button onClick={() => setShuffle(s => !s)} style={{ ...ctrlBtn, color: shuffle ? '#ff8c00' : '#555', fontSize:'16px' }}>🔀</button>
             </div>
             <input type="range" min={0} max={1} step={0.01} value={volume}
