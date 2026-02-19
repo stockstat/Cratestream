@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { signIn, signInWithGoogle } = useAuth();
   
+  // Read ?redirect= param so we know where to send user after login
+  const redirectTo = searchParams.get('redirect') || '/account';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,30 +19,24 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     const result = await signIn(email, password);
-    
     if (result.success) {
-      navigate('/player');
+      navigate(redirectTo);
     } else {
       setError(result.error || 'Login failed');
     }
-    
     setLoading(false);
   };
 
   const handleGoogleLogin = async () => {
     setError('');
     setLoading(true);
-
     const result = await signInWithGoogle();
-    
     if (result.success) {
-      navigate('/player');
+      navigate(redirectTo);
     } else {
       setError(result.error || 'Google login failed');
     }
-    
     setLoading(false);
   };
 
@@ -57,19 +55,15 @@ export function LoginPage() {
 
         {/* Login Card */}
         <div className="bg-white/10 backdrop-blur-lg rounded-lg p-8 shadow-xl">
-          {/* Error Message */}
           {error && (
             <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-200 text-sm">
               {error}
             </div>
           )}
 
-          {/* Email Login Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-2">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-gray-200 mb-2">Email</label>
               <input
                 type="email"
                 value={email}
@@ -81,9 +75,7 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-2">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-gray-200 mb-2">Password</label>
               <input
                 type="password"
                 value={password}
@@ -103,14 +95,12 @@ export function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
           <div className="my-6 flex items-center">
             <div className="flex-1 border-t border-white/20"></div>
             <span className="px-4 text-sm text-gray-400">or</span>
             <div className="flex-1 border-t border-white/20"></div>
           </div>
 
-          {/* Google Login */}
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
@@ -125,7 +115,6 @@ export function LoginPage() {
             Continue with Google
           </button>
 
-          {/* Links */}
           <div className="mt-6 text-center text-sm">
             <p className="text-gray-300">
               Don't have an account?{' '}
@@ -136,7 +125,6 @@ export function LoginPage() {
           </div>
         </div>
 
-        {/* Back to Home */}
         <div className="mt-6 text-center">
           <Link to="/" className="text-gray-400 hover:text-gray-300 text-sm">
             ← Back to home
