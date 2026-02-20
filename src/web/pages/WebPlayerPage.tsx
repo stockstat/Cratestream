@@ -466,9 +466,11 @@ export function WebPlayerPage() {
               disabled={!user}
               title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
               style={{
-                background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '8px',
+                background: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'rgba(77,166,255,0.15)' : 'none',
+                border: currentTrack && myRecommendIds.has(currentTrack.fileName) ? '1px solid rgba(77,166,255,0.4)' : '1px solid transparent',
+                borderRadius: '50%', fontSize: '28px', cursor: 'pointer', padding: '8px',
                 opacity: user ? 1 : 0.3,
-                filter: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'none' : 'grayscale(1)',
+                filter: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'none' : 'grayscale(1) brightness(0.5)',
               }}
             >
               👍
