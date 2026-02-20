@@ -182,7 +182,8 @@ export function WebPlayerPage() {
 
   const toggleRecommend = async () => {
     if (!user || !currentTrack || !currentAlbum) return;
-    const trackId = currentTrack.fileName;
+    // Sanitize fileName for use as Firestore doc ID (no slashes or special chars)
+    const trackId = currentTrack.fileName.replace(/[/\\#%?]/g, '_').substring(0, 500);
     const ref = doc(db, 'recommendations', trackId);
     const alreadyRecommended = myRecommendIds.has(trackId);
     // Optimistic UI update
