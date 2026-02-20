@@ -46,6 +46,7 @@ export function WebPlayerPage() {
   const [queueIndex, setQueueIndex]       = useState(0);
   const [shuffle, setShuffle]             = useState(false);
   const [isYearShuffle, setIsYearShuffle] = useState(false);
+  const [repeat, setRepeat]               = useState<'off' | 'all' | 'one'>('off');
 
   const audioRef     = useRef<HTMLAudioElement>(null);
   const letterRefs   = useRef<Record<string, HTMLDivElement | null>>({});
@@ -157,7 +158,25 @@ export function WebPlayerPage() {
       if (yearQueueRef.current) yearQueueRef.current.usedAlbums = used;
     } catch { playNextYearAlbum(albums, used); }
   };
-  const handleTrackEnd = () => { if (isYearShuffle && yearQueueRef.current) playNextYearAlbum(yearQueueRef.current.albums, yearQueueRef.current.usedAlbums); else playNext(); };
+  const handleTrackEnd = () => {
+    if (repeat === 'one') {
+      // Replay same track
+      if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play(); }
+      return;
+    }
+    if (isYearShuffle && yearQueueRef.current) {
+      playNextYearAlbum(yearQueueRef.current.albums, yearQueueRef.current.usedAlbums);
+    } else {
+      const isLast = queueIndex >= queue.length - 1;
+      if (isLast && repeat === 'all' && queue.length > 0) {
+        // Loop back to start
+        setCurrentTrack(queue[0]); setQueueIndex(0);
+        if (audioRef.current) { audioRef.current.src = queue[0].url; audioRef.current.play(); }
+      } else {
+        playNext();
+      }
+    }
+  };
   const handleSkipNext = () => { if (isYearShuffle && yearQueueRef.current) playNextYearAlbum(yearQueueRef.current.albums, yearQueueRef.current.usedAlbums); else playNext(); };
   const playTracks = (trackList: FileItem[], startIndex: number, shuffled = false) => {
     setIsYearShuffle(false); yearQueueRef.current = null;
@@ -241,19 +260,18 @@ export function WebPlayerPage() {
           </div>
         </div>
 
-        {/* Heart + queue */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-around', padding:'8px 40px' }}>
-          <button onClick={() => {}} style={{ background:'none', border:'none', color:'#888', fontSize:'24px', cursor:'pointer', padding:'8px' }}>☰+</button>
-          <button onClick={toggleFavourite} disabled={!user} style={{ background:'none', border:'none', fontSize:'26px', cursor:'pointer', padding:'8px', opacity: user ? 1 : 0.3 }}>
+        {/* Heart centred */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'8px 40px' }}>
+          <button onClick={toggleFavourite} disabled={!user} style={{ background:'none', border:'none', fontSize:'28px', cursor:'pointer', padding:'8px', opacity: user ? 1 : 0.3 }}>
             {isFavd ? '❤️' : '🤍'}
           </button>
         </div>
 
-        {/* Controls */}
+        {/* Controls — shuffle | prev | play | next | repeat */}
         <div style={{ padding:'0 20px 8px' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'16px' }}>
             <button onClick={() => setShuffle(s => !s)} style={{ background:'none', border:'none', color: shuffle ? '#4da6ff' : '#555', fontSize:'22px', cursor:'pointer', padding:'8px' }}>🔀</button>
-            <div style={{ display:'flex', alignItems:'center', gap:'24px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'20px' }}>
               <button onClick={playPrev} disabled={isYearShuffle} style={{ background:'none', border:'none', color:'#fff', cursor:'pointer', padding:'8px' }}>
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
               </button>
@@ -267,7 +285,27 @@ export function WebPlayerPage() {
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
             </div>
-            <div style={{ width:'38px' }} />
+            {/* Repeat button — 3 states */}
+            <button onClick={() => setRepeat(r => r === 'off' ? 'all' : r === 'all' ? 'one' : 'off')} style={{ background:'none', border:'none', cursor:'pointer', padding:'8px', position:'relative' }}>
+              {repeat === 'one' ? (
+                // Repeat one — filled blue with "1"
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#4da6ff">
+                  <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z"/>
+                </svg>
+              ) : repeat === 'all' ? (
+                // Repeat all — filled blue
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#4da6ff">
+                  <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+                </svg>
+              ) : (
+                // Repeat off — grey
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#555">
+                  <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+                </svg>
+              )}
+              {/* Small dot indicator under repeat-one */}
+              {repeat !== 'off' && <div style={{ position:'absolute', bottom:'4px', left:'50%', transform:'translateX(-50%)', width:'4px', height:'4px', borderRadius:'50%', background:'#4da6ff' }} />}
+            </button>
           </div>
 
           {/* Volume */}
