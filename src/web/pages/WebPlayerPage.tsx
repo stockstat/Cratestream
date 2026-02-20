@@ -33,9 +33,12 @@ export function WebPlayerPage() {
   const [tracksLoading, setTracksLoading] = useState(false);
   const [search, setSearch]               = useState('');
   const [activeLetter, setActiveLetter]   = useState('A');
-  const [homeTab, setHomeTab]             = useState<'artists' | 'years' | 'favourites'>('artists');
+  const [homeTab, setHomeTab]             = useState<'artists' | 'years' | 'favourites' | 'recent' | 'new'>('artists');
   const [favourites, setFavourites]       = useState<FavTrack[]>([]);
   const [favIds, setFavIds]               = useState<Set<string>>(new Set());
+  const [recentlyPlayed, setRecentlyPlayed] = useState<FavTrack[]>([]);
+  const [newAlbums, setNewAlbums]           = useState<AlbumEntry[]>([]);
+  const [isDiscover, setIsDiscover]         = useState(false);
   const [showNowPlaying, setShowNowPlaying] = useState(false);
   const [currentTrack, setCurrentTrack]   = useState<FileItem | null>(null);
   const [playing, setPlaying]             = useState(false);
@@ -86,6 +89,33 @@ export function WebPlayerPage() {
       setFavIds(new Set(favs.map(f => f.id)));
     }).catch(() => {});
   }, [user]);
+
+  // Load recently played from localStorage
+  useEffect(() => {
+    try { const s = localStorage.getItem('cs_recently_played'); if (s) setRecentlyPlayed(JSON.parse(s)); } catch {}
+  }, []);
+
+  // Detect new additions — albums not in previous index snapshot
+  useEffect(() => {
+    if (!index.length) return;
+    try {
+      const prevKeys = new Set<string>(JSON.parse(localStorage.getItem('cs_known_albums') || '[]'));
+      const brandNew = prevKeys.size > 0 ? index.filter(a => !prevKeys.has(a.folderPrefix)) : [];
+      setNewAlbums(brandNew.slice(0, 100));
+      localStorage.setItem('cs_known_albums', JSON.stringify(index.map(a => a.folderPrefix)));
+    } catch {}
+  }, [index]);
+
+  // Track recently played whenever current track changes
+  useEffect(() => {
+    if (!currentTrack || !currentAlbum) return;
+    const entry: FavTrack = { id: currentTrack.fileName, name: currentTrack.name, fileName: currentTrack.fileName, url: currentTrack.url, artist: currentAlbum.artist, album: currentAlbum.album, artworkUrl: currentAlbum.artworkUrl, addedAt: Date.now() };
+    setRecentlyPlayed(prev => {
+      const updated = [entry, ...prev.filter(t => t.id !== entry.id)].slice(0, 20);
+      try { localStorage.setItem('cs_recently_played', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  }, [currentTrack?.fileName]);
 
   const toggleFavourite = async () => {
     if (!user || !currentTrack || !currentAlbum) return;
@@ -158,26 +188,51 @@ export function WebPlayerPage() {
       if (yearQueueRef.current) yearQueueRef.current.usedAlbums = used;
     } catch { playNextYearAlbum(albums, used); }
   };
-  const handleTrackEnd = () => {
+
+  // ── DISCOVER MODE — random tracks across entire library forever ──
+  const discoverUsedRef = useRef<Set<string>>(new Set());
+  const startDiscover = async () => {
+    setIsDiscover(true);
+    setIsYearShuffle(false);
+    yearQueueRef.current = null;
+    discoverUsedRef.current = new Set();
+    await playNextDiscoverAlbum();
+  };
+  const playNextDiscoverAlbum = async () => {
+    const allAlbums = index.filter(a => a.folderPrefix);
+    let available = allAlbums.filter(a => !discoverUsedRef.current.has(a.folderPrefix));
+    if (!available.length) { discoverUsedRef.current = new Set(); available = allAlbums; }
+    const pick = available[Math.floor(Math.random() * available.length)];
+    discoverUsedRef.current.add(pick.folderPrefix);
+    try {
+      const files = await fetchTracks(pick);
+      if (!files.length) return playNextDiscoverAlbum();
+      const track = files[Math.floor(Math.random() * files.length)];
+      setCurrentAlbum(pick); setTracks(files); setQueue([track]);
+      setQueueIndex(0); setCurrentTrack(track); setPlaying(true);
+      if (audioRef.current) { audioRef.current.src = track.url; audioRef.current.play(); }
+    } catch { playNextDiscoverAlbum(); }
+  };
     if (repeat === 'one') {
-      // Replay same track
       if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play(); }
       return;
     }
+    if (isDiscover) { playNextDiscoverAlbum(); return; }
     if (isYearShuffle && yearQueueRef.current) {
       playNextYearAlbum(yearQueueRef.current.albums, yearQueueRef.current.usedAlbums);
     } else {
       const isLast = queueIndex >= queue.length - 1;
       if (isLast && repeat === 'all' && queue.length > 0) {
-        // Loop back to start
         setCurrentTrack(queue[0]); setQueueIndex(0);
         if (audioRef.current) { audioRef.current.src = queue[0].url; audioRef.current.play(); }
-      } else {
-        playNext();
-      }
+      } else { playNext(); }
     }
   };
-  const handleSkipNext = () => { if (isYearShuffle && yearQueueRef.current) playNextYearAlbum(yearQueueRef.current.albums, yearQueueRef.current.usedAlbums); else playNext(); };
+  const handleSkipNext = () => {
+    if (isDiscover) { playNextDiscoverAlbum(); return; }
+    if (isYearShuffle && yearQueueRef.current) playNextYearAlbum(yearQueueRef.current.albums, yearQueueRef.current.usedAlbums);
+    else playNext();
+  };
   const playTracks = (trackList: FileItem[], startIndex: number, shuffled = false) => {
     setIsYearShuffle(false); yearQueueRef.current = null;
     let list = [...trackList]; let idx = startIndex;
@@ -226,7 +281,7 @@ export function WebPlayerPage() {
           <button onClick={() => setShowNowPlaying(false)} style={{ background:'none', border:'none', color:'#fff', fontSize:'22px', cursor:'pointer', padding:'8px', lineHeight:1 }}>✕</button>
           <div style={{ textAlign:'center', flex:1, padding:'0 12px' }}>
             <div style={{ fontSize:'15px', fontWeight:700, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cleanName(currentTrack.name)}</div>
-            <div style={{ fontSize:'12px', color:'#888', marginTop:'2px' }}>{currentAlbum?.artist}</div>
+            <div style={{ fontSize:'12px', color:'#888', marginTop:'2px' }}>{isDiscover ? '🎲 Discover Mode' : currentAlbum?.artist}</div>
           </div>
           {currentAlbum?.artworkUrl
             ? <img src={currentAlbum.artworkUrl} alt="" style={{ width:'44px', height:'44px', borderRadius:'6px', objectFit:'cover', flexShrink:0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} />
@@ -359,16 +414,44 @@ export function WebPlayerPage() {
                 style={{ width:'100%', padding:'11px 16px', borderRadius:'12px', boxSizing:'border-box' as any, border:'1px solid rgba(255,140,0,0.25)', background:'rgba(255,255,255,0.06)', color:'#fff', fontSize:'15px', outline:'none' }}
               />
             </div>
-            {!search && (
-              <div style={{ display:'flex', padding:'4px 16px 0', gap:'4px', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
-                {(['artists','years','favourites'] as const).map(tab => (
-                  <button key={tab} onClick={() => setHomeTab(tab)} style={{ background:'none', border:'none', padding:'10px 14px', cursor:'pointer', color: homeTab===tab ? '#ff8c00' : '#555', fontWeight: homeTab===tab ? 700 : 400, fontSize:'13px', borderBottom: homeTab===tab ? '2px solid #ff8c00' : '2px solid transparent', textTransform:'capitalize', display:'flex', alignItems:'center', gap:'5px' }}>
-                    {tab === 'favourites' && '❤️'}{tab}
-                    {tab === 'favourites' && favourites.length > 0 && <span style={{ background:'rgba(255,140,0,0.2)', color:'#ff8c00', borderRadius:'10px', padding:'1px 6px', fontSize:'10px', fontWeight:900 }}>{favourites.length}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Discover Mode button */}
+            <div style={{ padding:'12px 16px 0' }}>
+              <button onClick={startDiscover} style={{
+                width:'100%', padding:'14px', borderRadius:'14px', border:'none', cursor:'pointer',
+                background: isDiscover ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'linear-gradient(135deg,rgba(124,58,237,0.2),rgba(79,70,229,0.2))',
+                color: isDiscover ? '#fff' : '#a78bfa',
+                display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
+                fontSize:'15px', fontWeight:900, fontFamily:'Impact,sans-serif', letterSpacing:'1px',
+                boxShadow: isDiscover ? '0 4px 20px rgba(124,58,237,0.5)' : 'none',
+                border: isDiscover ? 'none' : '1px solid rgba(124,58,237,0.4)' as any,
+              }}>
+                <span style={{ fontSize:'20px' }}>🎲</span>
+                {isDiscover ? '⏹ STOP DISCOVER' : 'DISCOVER MODE'}
+                <span style={{ fontSize:'11px', fontWeight:400, opacity:0.8, fontFamily:'system-ui' }}>
+                  {isDiscover ? 'Playing random tracks from the vault' : 'Random tracks · All years · Never stops'}
+                </span>
+              </button>
+            </div>
+
+            <div style={{ display:'flex', padding:'4px 16px 0', gap:'2px', borderBottom:'1px solid rgba(255,255,255,0.06)', overflowX:'auto' }}>
+              {([
+                { id:'artists', label:'Artists' },
+                { id:'years',   label:'Years' },
+                { id:'new',     label:'🆕 New', show: newAlbums.length > 0 },
+                { id:'recent',  label:'🕐 Recent', show: recentlyPlayed.length > 0 },
+                { id:'favourites', label:'❤️', badge: favourites.length },
+              ] as Array<{id:string,label:string,show?:boolean,badge?:number}>).map(tab => (
+                <button key={tab.id} onClick={() => setHomeTab(tab.id as any)} style={{
+                  background:'none', border:'none', padding:'10px 12px', cursor:'pointer', whiteSpace:'nowrap',
+                  color: homeTab===tab.id ? '#ff8c00' : '#555', fontWeight: homeTab===tab.id ? 700 : 400,
+                  fontSize:'12px', borderBottom: homeTab===tab.id ? '2px solid #ff8c00' : '2px solid transparent',
+                  display:'flex', alignItems:'center', gap:'4px', flexShrink:0,
+                }}>
+                  {tab.label}
+                  {tab.badge ? <span style={{ background:'rgba(255,140,0,0.2)', color:'#ff8c00', borderRadius:'10px', padding:'1px 5px', fontSize:'9px', fontWeight:900 }}>{tab.badge}</span> : null}
+                </button>
+              ))}
+            </div>
 
             {indexLoading ? <div style={{ textAlign:'center', padding:'60px', color:'#ff8c00' }}>Loading library...</div>
             : search ? (
@@ -415,6 +498,59 @@ export function WebPlayerPage() {
                         {currentTrack?.fileName===fav.fileName && playing && <span style={{ color:'#ff8c00', fontSize:'14px' }}>▶</span>}
                       </button>
                     ))}
+                  </>
+                )}
+              </div>
+            ) : homeTab === 'recent' ? (
+              <div style={{ padding:'12px 16px' }}>
+                {recentlyPlayed.length === 0 ? (
+                  <div style={{ textAlign:'center', padding:'40px 20px' }}>
+                    <div style={{ fontSize:'48px', marginBottom:'12px' }}>🕐</div>
+                    <div style={{ fontSize:'15px', fontWeight:700, marginBottom:'8px' }}>Nothing played yet</div>
+                    <div style={{ fontSize:'13px', color:'#555' }}>Tracks you play will appear here</div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize:'11px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>Last {recentlyPlayed.length} Played</div>
+                    {recentlyPlayed.map(track => (
+                      <button key={track.id} onClick={() => playFav(track)} style={{ display:'flex', alignItems:'center', gap:'12px', width:'100%', background: currentTrack?.fileName===track.fileName ? 'rgba(255,140,0,0.15)' : 'rgba(255,255,255,0.03)', border: currentTrack?.fileName===track.fileName ? '1px solid rgba(255,140,0,0.4)' : '1px solid transparent', borderRadius:'10px', padding:'10px 12px', color:'#fff', cursor:'pointer', marginBottom:'4px', textAlign:'left' }}>
+                        <div style={{ width:'46px', height:'46px', borderRadius:'6px', background:'#1a1a1a', overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px' }}>
+                          {track.artworkUrl ? <img src={track.artworkUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} /> : '💿'}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:'13px', fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: currentTrack?.fileName===track.fileName ? '#ff8c00' : '#fff' }}>{cleanName(track.name)}</div>
+                          <div style={{ fontSize:'11px', color:'#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{track.artist} — {track.album}</div>
+                        </div>
+                        {currentTrack?.fileName===track.fileName && playing && <span style={{ color:'#ff8c00' }}>▶</span>}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            ) : homeTab === 'new' ? (
+              <div style={{ padding:'12px 16px' }}>
+                {newAlbums.length === 0 ? (
+                  <div style={{ textAlign:'center', padding:'40px 20px' }}>
+                    <div style={{ fontSize:'48px', marginBottom:'12px' }}>🆕</div>
+                    <div style={{ fontSize:'15px', fontWeight:700, marginBottom:'8px' }}>No new additions yet</div>
+                    <div style={{ fontSize:'13px', color:'#555' }}>New albums added since your last visit will appear here</div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize:'11px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px' }}>{newAlbums.length} New Additions</div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:'10px' }}>
+                      {newAlbums.map(album => (
+                        <button key={album.folderPrefix} onClick={() => openAlbum(album)} style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'10px', padding:'0', color:'#fff', cursor:'pointer', textAlign:'left', overflow:'hidden' }}>
+                          <div style={{ width:'100%', aspectRatio:'1', overflow:'hidden', background:'#111', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'32px' }}>
+                            {album.artworkUrl ? <img src={album.artworkUrl} alt={album.album} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; }} /> : '💿'}
+                          </div>
+                          <div style={{ padding:'7px 9px 9px' }}>
+                            <div style={{ fontSize:'11px', fontWeight:700, lineHeight:'1.3', overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{album.album}</div>
+                            <div style={{ fontSize:'10px', color:'#ff8c00', marginTop:'2px' }}>{album.artist}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
