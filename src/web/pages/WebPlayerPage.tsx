@@ -417,13 +417,15 @@ export function WebPlayerPage() {
             {/* Discover Mode button */}
             <div style={{ padding:'12px 16px 0' }}>
               <button onClick={startDiscover} style={{
-                width:'100%', padding:'14px', borderRadius:'14px', border:'none', cursor:'pointer',
+                width:'100%', padding:'14px', borderRadius:'14px', cursor:'pointer',
                 background: isDiscover ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'linear-gradient(135deg,rgba(124,58,237,0.2),rgba(79,70,229,0.2))',
                 color: isDiscover ? '#fff' : '#a78bfa',
                 display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
                 fontSize:'15px', fontWeight:900, fontFamily:'Impact,sans-serif', letterSpacing:'1px',
                 boxShadow: isDiscover ? '0 4px 20px rgba(124,58,237,0.5)' : 'none',
-                border: isDiscover ? 'none' : '1px solid rgba(124,58,237,0.4)' as any,
+                outline:'none',
+                borderWidth:'1px', borderStyle:'solid',
+                borderColor: isDiscover ? 'transparent' : 'rgba(124,58,237,0.4)',
               }}>
                 <span style={{ fontSize:'20px' }}>🎲</span>
                 {isDiscover ? '⏹ STOP DISCOVER' : 'DISCOVER MODE'}
@@ -433,25 +435,31 @@ export function WebPlayerPage() {
               </button>
             </div>
 
-            <div style={{ display:'flex', padding:'4px 16px 0', gap:'2px', borderBottom:'1px solid rgba(255,255,255,0.06)', overflowX:'auto' }}>
-              {([
-                { id:'artists', label:'Artists' },
-                { id:'years',   label:'Years' },
-                { id:'new',     label:'🆕 New', show: newAlbums.length > 0 },
-                { id:'recent',  label:'🕐 Recent', show: recentlyPlayed.length > 0 },
-                { id:'favourites', label:'❤️', badge: favourites.length },
-              ] as Array<{id:string,label:string,show?:boolean,badge?:number}>).map(tab => (
-                <button key={tab.id} onClick={() => setHomeTab(tab.id as any)} style={{
-                  background:'none', border:'none', padding:'10px 12px', cursor:'pointer', whiteSpace:'nowrap',
-                  color: homeTab===tab.id ? '#ff8c00' : '#555', fontWeight: homeTab===tab.id ? 700 : 400,
-                  fontSize:'12px', borderBottom: homeTab===tab.id ? '2px solid #ff8c00' : '2px solid transparent',
-                  display:'flex', alignItems:'center', gap:'4px', flexShrink:0,
-                }}>
-                  {tab.label}
-                  {tab.badge ? <span style={{ background:'rgba(255,140,0,0.2)', color:'#ff8c00', borderRadius:'10px', padding:'1px 5px', fontSize:'9px', fontWeight:900 }}>{tab.badge}</span> : null}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              type TabDef = { id: string; label: string; show?: boolean; badge?: number };
+              const tabs: TabDef[] = [
+                { id:'artists',    label:'Artists' },
+                { id:'years',      label:'Years' },
+                { id:'new',        label:'🆕 New',    show: newAlbums.length > 0 },
+                { id:'recent',     label:'🕐 Recent', show: recentlyPlayed.length > 0 },
+                { id:'favourites', label:'❤️',        badge: favourites.length },
+              ];
+              return (
+                <div style={{ display:'flex', padding:'4px 16px 0', gap:'2px', borderBottom:'1px solid rgba(255,255,255,0.06)', overflowX:'auto' }}>
+                  {tabs.map(tab => (
+                    <button key={tab.id} onClick={() => setHomeTab(tab.id as any)} style={{
+                      background:'none', border:'none', padding:'10px 12px', cursor:'pointer', whiteSpace:'nowrap',
+                      color: homeTab===tab.id ? '#ff8c00' : '#555', fontWeight: homeTab===tab.id ? 700 : 400,
+                      fontSize:'12px', borderBottom: homeTab===tab.id ? '2px solid #ff8c00' : '2px solid transparent',
+                      display:'flex', alignItems:'center', gap:'4px', flexShrink:0,
+                    }}>
+                      {tab.label}
+                      {tab.badge ? <span style={{ background:'rgba(255,140,0,0.2)', color:'#ff8c00', borderRadius:'10px', padding:'1px 5px', fontSize:'9px', fontWeight:900 }}>{tab.badge}</span> : null}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
 
             {indexLoading ? <div style={{ textAlign:'center', padding:'60px', color:'#ff8c00' }}>Loading library...</div>
             : search ? (
