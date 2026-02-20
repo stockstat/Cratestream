@@ -419,7 +419,7 @@ export function WebPlayerPage() {
                 )}
               </div>
             ) : homeTab === 'artists' ? (
-              <div style={{ display:'flex' }}>
+              <div style={{ display:'flex', maxWidth:'600px', margin:'0 auto', width:'100%' }}>
                 <div style={{ flex:1, padding:'0 8px 0 16px' }}>
                   {ALPHABET.map(letter => {
                     const la = artistsByLetter[letter];
@@ -440,9 +440,9 @@ export function WebPlayerPage() {
                     );
                   })}
                 </div>
-                <div style={{ width:'24px', display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 0', position:'sticky', top:'60px', alignSelf:'flex-start', height:'calc(100vh - 130px)', overflowY:'auto', flexShrink:0 }}>
+                <div style={{ width:'18px', display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 2px', position:'sticky', top:'60px', alignSelf:'flex-start', height:'calc(100vh - 130px)', overflowY:'auto', flexShrink:0, marginRight:'2px' }}>
                   {ALPHABET.map(letter => (
-                    <button key={letter} onClick={() => scrollToLetter(letter)} style={{ background:'none', border:'none', color: activeLetter===letter ? '#ff8c00' : artistsByLetter[letter]?.length ? '#777' : '#2a2a2a', fontSize:'10px', fontWeight: activeLetter===letter ? 900 : 400, padding:'2px 0', cursor: artistsByLetter[letter]?.length ? 'pointer' : 'default', lineHeight:'1.4', width:'100%', textAlign:'center' }}>{letter}</button>
+                    <button key={letter} onClick={() => scrollToLetter(letter)} style={{ background:'none', border:'none', color: activeLetter===letter ? '#ff8c00' : artistsByLetter[letter]?.length ? '#777' : '#2a2a2a', fontSize:'9px', fontWeight: activeLetter===letter ? 900 : 400, padding:'1px 0', cursor: artistsByLetter[letter]?.length ? 'pointer' : 'default', lineHeight:'1.4', width:'100%', textAlign:'center' }}>{letter}</button>
                   ))}
                 </div>
               </div>
