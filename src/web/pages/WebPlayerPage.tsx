@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, increment, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from '../firebase';
 
@@ -12,8 +12,14 @@ interface FavTrack {
   id: string; name: string; fileName: string; url: string;
   artist: string; album: string; artworkUrl: string | null; addedAt: number;
 }
-type HomeTab = 'artists' | 'years' | 'favourites' | 'recent' | 'new';
+type HomeTab = 'artists' | 'years' | 'favourites' | 'recent' | 'new' | 'community';
 type ViewType = 'home' | 'artist' | 'tracks';
+
+interface RecommendedTrack {
+  id: string; name: string; fileName: string; url: string;
+  artist: string; album: string; artworkUrl: string | null;
+  count: number; recommendedBy: string[]; lastRecommended: number;
+}
 
 const BUCKET    = '1994HipHop';
 const INDEX_URL = `https://f001.backblazeb2.com/file/${BUCKET}/web-index.json`;
@@ -46,6 +52,9 @@ export function WebPlayerPage() {
   const [repeat, setRepeat]                   = useState<'off' | 'all' | 'one'>('off');
   const [isYearShuffle, setIsYearShuffle]     = useState(false);
   const [isDiscover, setIsDiscover]           = useState(false);
+  const [communityTracks, setCommunityTracks] = useState<RecommendedTrack[]>([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [myRecommendIds, setMyRecommendIds]   = useState<Set<string>>(new Set());
 
   const audioRef       = useRef<HTMLAudioElement>(null);
   const letterRefs     = useRef<Record<string, HTMLDivElement | null>>({});
@@ -153,6 +162,74 @@ export function WebPlayerPage() {
       else await updateDoc(ref, { favourites: arrayUnion(favTrack) });
     }
   };
+
+  // ── Community recommendations ──
+  const loadCommunityTracks = async () => {
+    setCommunityLoading(true);
+    try {
+      const q = query(collection(db, 'recommendations'), orderBy('count', 'desc'), limit(50));
+      const snap = await getDocs(q);
+      const tracks: RecommendedTrack[] = snap.docs.map(d => d.data() as RecommendedTrack);
+      setCommunityTracks(tracks);
+      // Mark which ones current user has recommended
+      if (user) {
+        const myRecs = new Set(tracks.filter(t => t.recommendedBy?.includes(user.uid)).map(t => t.id));
+        setMyRecommendIds(myRecs);
+      }
+    } catch (e) { console.error(e); }
+    finally { setCommunityLoading(false); }
+  };
+
+  const toggleRecommend = async () => {
+    if (!user || !currentTrack || !currentAlbum) return;
+    const trackId = currentTrack.fileName;
+    const ref = doc(db, 'recommendations', trackId);
+    const alreadyRecommended = myRecommendIds.has(trackId);
+    // Optimistic UI update
+    if (alreadyRecommended) {
+      setMyRecommendIds(prev => { const s = new Set(prev); s.delete(trackId); return s; });
+      setCommunityTracks(prev => prev.map(t => t.id === trackId ? { ...t, count: t.count - 1, recommendedBy: t.recommendedBy.filter(u => u !== user.uid) } : t).filter(t => t.count > 0));
+    } else {
+      setMyRecommendIds(prev => new Set([...prev, trackId]));
+    }
+    try {
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        // Create new recommendation doc
+        const newRec: RecommendedTrack = {
+          id: trackId, name: currentTrack.name, fileName: currentTrack.fileName,
+          url: currentTrack.url, artist: currentAlbum.artist, album: currentAlbum.album,
+          artworkUrl: currentAlbum.artworkUrl, count: 1,
+          recommendedBy: [user.uid], lastRecommended: Date.now(),
+        };
+        await setDoc(ref, newRec);
+        setCommunityTracks(prev => [newRec, ...prev].sort((a, b) => b.count - a.count));
+      } else if (alreadyRecommended) {
+        await updateDoc(ref, {
+          count: increment(-1),
+          recommendedBy: arrayRemove(user.uid),
+        });
+      } else {
+        await updateDoc(ref, {
+          count: increment(1),
+          recommendedBy: arrayUnion(user.uid),
+          lastRecommended: Date.now(),
+        });
+        setCommunityTracks(prev => prev.map(t => t.id === trackId ? { ...t, count: t.count + 1 } : t).sort((a, b) => b.count - a.count));
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  // Load community when tab is opened
+  useEffect(() => {
+    if (homeTab === 'community') loadCommunityTracks();
+  }, [homeTab]); // eslint-disable-line
+
+  // Update myRecommendIds when user changes
+  useEffect(() => {
+    if (!user) { setMyRecommendIds(new Set()); return; }
+    setMyRecommendIds(new Set(communityTracks.filter(t => t.recommendedBy?.includes(user.uid)).map(t => t.id)));
+  }, [user]); // eslint-disable-line
 
   // ── Derived data ──
   const years = useMemo(() => [...new Set(index.map(a => a.year))].filter(Boolean).sort(), [index]);
@@ -364,11 +441,30 @@ export function WebPlayerPage() {
             }
           </div>
         </div>
-        {/* Heart */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 40px' }}>
-          <button onClick={toggleFavourite} disabled={!user} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '8px', opacity: user ? 1 : 0.3 }}>
+        {/* Heart + Recommend */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', padding: '8px 40px' }}>
+          <button onClick={toggleFavourite} disabled={!user} title={user ? 'Save to favourites' : 'Sign in to save'} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '8px', opacity: user ? 1 : 0.3 }}>
             {isFavd ? '❤️' : '🤍'}
           </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+            <button
+              onClick={toggleRecommend}
+              disabled={!user}
+              title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
+              style={{
+                background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '8px',
+                opacity: user ? 1 : 0.3,
+                filter: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'none' : 'grayscale(1)',
+              }}
+            >
+              👍
+            </button>
+            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName) && (
+              <span style={{ fontSize: '10px', color: '#4da6ff', fontWeight: 700 }}>
+                {communityTracks.find(t => t.id === currentTrack.fileName)?.count}
+              </span>
+            )}
+          </div>
         </div>
         {/* Controls: shuffle | prev | play | next | repeat */}
         <div style={{ padding: '0 20px 8px' }}>
@@ -475,6 +571,7 @@ export function WebPlayerPage() {
                   { id: 'new',        label: '🆕 New' },
                   { id: 'recent',     label: '🕐 Recent' },
                   { id: 'favourites', label: '❤️', badge: favourites.length },
+                  { id: 'community',  label: '👍 Community' },
                 ] as Array<{ id: HomeTab; label: string; badge?: number }>).map(tab => (
                   <button key={tab.id} onClick={() => setHomeTab(tab.id)} style={{
                     background: 'none', border: 'none', padding: '10px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
@@ -597,6 +694,57 @@ export function WebPlayerPage() {
                       ))}
                     </div>
                   </>
+                )}
+              </div>
+            ) : homeTab === 'community' ? (
+              // Community recommendations
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px' }}>What the community is feeling 👍</div>
+                    <div style={{ fontSize: '10px', color: '#333', marginTop: '2px' }}>Tap 👍 in now playing to recommend a track</div>
+                  </div>
+                  <button onClick={loadCommunityTracks} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#888', fontSize: '11px', padding: '5px 10px', cursor: 'pointer' }}>↻ Refresh</button>
+                </div>
+                {communityLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#4da6ff' }}>Loading...</div>
+                ) : communityTracks.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>👍</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>No recommendations yet</div>
+                    <div style={{ fontSize: '13px', color: '#555', marginBottom: '6px' }}>Be the first to recommend a track!</div>
+                    <div style={{ fontSize: '12px', color: '#333' }}>Play something and tap 👍 in the now playing screen</div>
+                  </div>
+                ) : (
+                  communityTracks.map((track, i) => (
+                    <button key={track.id} onClick={() => playFav(track as any)} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', width: '100%',
+                      background: currentTrack?.fileName === track.fileName ? 'rgba(77,166,255,0.12)' : 'rgba(255,255,255,0.03)',
+                      border: currentTrack?.fileName === track.fileName ? '1px solid rgba(77,166,255,0.4)' : '1px solid transparent',
+                      borderRadius: '10px', padding: '10px 12px', color: '#fff', cursor: 'pointer', marginBottom: '4px', textAlign: 'left',
+                    }}>
+                      {/* Rank */}
+                      <div style={{ width: '24px', textAlign: 'center', flexShrink: 0 }}>
+                        <span style={{ fontSize: i < 3 ? '18px' : '12px', color: '#444' }}>
+                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                        </span>
+                      </div>
+                      {/* Artwork */}
+                      <div style={{ width: '46px', height: '46px', borderRadius: '6px', background: '#1a1a1a', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                        {track.artworkUrl ? <img src={track.artworkUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /> : '💿'}
+                      </div>
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: currentTrack?.fileName === track.fileName ? '#4da6ff' : '#fff' }}>{cleanName(track.name)}</div>
+                        <div style={{ fontSize: '11px', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist} — {track.album}</div>
+                      </div>
+                      {/* Count badge */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '16px' }}>{user && myRecommendIds.has(track.id) ? '👍' : '👍'}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 900, color: user && myRecommendIds.has(track.id) ? '#4da6ff' : '#555' }}>{track.count}</span>
+                      </div>
+                    </button>
+                  ))
                 )}
               </div>
             ) : homeTab === 'artists' ? (
