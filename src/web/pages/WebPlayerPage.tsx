@@ -464,20 +464,20 @@ export function WebPlayerPage() {
             <button
               onClick={toggleRecommend}
               disabled={!user}
-              title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
+              title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
               style={{
-                background: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'rgba(77,166,255,0.15)' : 'none',
-                border: currentTrack && myRecommendIds.has(currentTrack.fileName) ? '1px solid rgba(77,166,255,0.4)' : '1px solid transparent',
+                background: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'rgba(255,50,50,0.15)' : 'none',
+                border: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
                 borderRadius: '50%', fontSize: '28px', cursor: 'pointer', padding: '8px',
                 opacity: user ? 1 : 0.3,
-                filter: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'none' : 'grayscale(1) brightness(0.5)',
+                filter: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.5)',
               }}
             >
               👍
             </button>
-            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName) && (
-              <span style={{ fontSize: '10px', color: '#4da6ff', fontWeight: 700 }}>
-                {communityTracks.find(t => t.id === currentTrack.fileName)?.count}
+            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName.replace(/[/\\#%?]/g, '_')) && (
+              <span style={{ fontSize: '10px', color: '#ff5555', fontWeight: 700 }}>
+                {communityTracks.find(t => t.id === currentTrack.fileName.replace(/[/\\#%?]/g, '_'))?.count}
               </span>
             )}
           </div>
