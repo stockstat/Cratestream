@@ -401,108 +401,118 @@ export function WebPlayerPage() {
 
   // ── FULL SCREEN NOW PLAYING ──
   if (showNowPlaying && currentTrack) {
-    const sanitizedId = currentTrack.fileName.replace(/[/\\#%?]/g, '_');
-    const isRecommended = myRecommendIds.has(sanitizedId);
-    const recCount = communityTracks.find(t => t.id === sanitizedId)?.count;
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 999, background: '#0d0d0d', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui,-apple-system,sans-serif', overflow: 'hidden' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 999, background: '#0d0d0d', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui,-apple-system,sans-serif' }}>
         <audio ref={audioRef}
           onTimeUpdate={() => { if (audioRef.current) setProgress(audioRef.current.currentTime); }}
           onLoadedMetadata={() => { if (audioRef.current) setDuration(audioRef.current.duration); }}
           onEnded={handleTrackEnd} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
         />
-
-        {/* TOP — close + title + artist */}
-        <div style={{ flexShrink: 0, padding: '12px 20px 8px', paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button onClick={() => setShowNowPlaying(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', padding: '6px', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>✕</button>
-            {isDiscover && <span style={{ fontSize: '10px', color: '#a78bfa', background: 'rgba(124,58,237,0.2)', borderRadius: '6px', padding: '2px 8px' }}>🎲 Discover</span>}
-            <div style={{ width: '34px' }} />
-          </div>
-          <div style={{ textAlign: 'center', marginTop: '4px' }}>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanName(currentTrack.name)}</div>
+        {/* Top bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 8px', paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
+          <button onClick={() => setShowNowPlaying(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', padding: '8px', lineHeight: 1, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>✕</button>
+          <div style={{ textAlign: 'center', flex: 1, padding: '0 12px' }}>
+            {isDiscover && <div style={{ marginBottom: '2px' }}><span style={{ fontSize: '10px', color: '#a78bfa', background: 'rgba(124,58,237,0.2)', borderRadius: '6px', padding: '1px 6px' }}>🎲 Discover</span></div>}
             <button onClick={() => { if (currentAlbum?.artist) { setShowNowPlaying(false); openArtist(currentAlbum.artist); } }}
-              style={{ background: 'none', border: 'none', color: '#ff8c00', fontSize: '13px', cursor: 'pointer', padding: '2px 0', fontWeight: 600, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
+              style={{ background: 'none', border: 'none', color: '#ff8c00', fontSize: '13px', cursor: 'pointer', padding: '0', fontWeight: 700, display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
               {currentAlbum?.artist}
             </button>
+            <div style={{ fontSize: '13px', fontWeight: 500, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>{cleanName(currentTrack.name)}</div>
+          </div>
+          {currentAlbum?.artworkUrl
+            ? <img src={currentAlbum.artworkUrl} alt="" style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            : <div style={{ width: '44px', height: '44px', borderRadius: '6px', background: '#222', flexShrink: 0 }} />
+          }
+        </div>
+        {/* Progress bar */}
+        <div style={{ padding: '8px 20px' }}>
+          <div onMouseDown={handleScrub} onTouchStart={handleScrub} onTouchMove={handleScrub}
+            style={{ position: 'relative', height: '28px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${duration ? (progress / duration) * 100 : 0}%`, background: '#4da6ff', borderRadius: '2px', transition: 'width 0.3s linear' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+            <span style={{ fontSize: '11px', color: '#4da6ff', fontWeight: 600 }}>{fmt(progress)}</span>
+            <span style={{ fontSize: '11px', color: '#666' }}>{fmt(duration)}</span>
           </div>
         </div>
-
-        {/* ARTWORK — fills remaining space */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 24px', minHeight: 0 }}>
-          <div style={{ width: '100%', maxWidth: '320px', aspectRatio: '1', borderRadius: '12px', overflow: 'hidden', background: '#1a1a1a', boxShadow: '0 12px 40px rgba(0,0,0,0.8)' }}>
+        {/* Big artwork */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px 24px' }}>
+          <div style={{ width: '100%', maxWidth: '380px', aspectRatio: '1', borderRadius: '12px', overflow: 'hidden', background: '#1a1a1a', boxShadow: '0 20px 60px rgba(0,0,0,0.8)' }}>
             {currentAlbum?.artworkUrl
               ? <img src={currentAlbum.artworkUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px' }}>💿</div>
             }
           </div>
         </div>
-
-        {/* BOTTOM CONTROLS — fixed height, never gets pushed off */}
-        <div style={{ flexShrink: 0, padding: '0 20px', paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-
-          {/* Progress bar */}
-          <div onMouseDown={handleScrub} onTouchStart={handleScrub} onTouchMove={handleScrub}
-            style={{ height: '28px', display: 'flex', alignItems: 'center', cursor: 'pointer', touchAction: 'none' }}>
-            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${duration ? (progress / duration) * 100 : 0}%`, background: '#4da6ff', borderRadius: '2px', transition: 'width 0.3s linear' }} />
+        {/* Heart + Recommend */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', padding: '8px 40px', touchAction: 'manipulation' }}>
+          <button
+            onClick={toggleFavourite}
+            onTouchEnd={e => { e.preventDefault(); toggleFavourite(); }}
+            style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '16px', opacity: user ? 1 : 0.3, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '64px', minHeight: '64px' }}>
+            {isFavd ? '❤️' : '🤍'}
+          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+            <button
+              onClick={toggleRecommend}
+              onTouchEnd={e => { e.preventDefault(); toggleRecommend(); }}
+              style={{
+                background: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'rgba(255,50,50,0.15)' : 'none',
+                border: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
+                borderRadius: '50%', fontSize: '28px', cursor: 'pointer', padding: '16px',
+                opacity: user ? 1 : 0.3,
+                filter: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.5)',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                minWidth: '64px', minHeight: '64px',
+              }}
+            >
+              👍
+            </button>
+            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName.replace(/[/\\#%?]/g, '_')) && (
+              <span style={{ fontSize: '10px', color: '#ff5555', fontWeight: 700 }}>
+                {communityTracks.find(t => t.id === currentTrack.fileName.replace(/[/\\#%?]/g, '_'))?.count}
+              </span>
+            )}
+          </div>
+        </div>
+        {/* Controls: shuffle | prev | play | next | repeat */}
+        <div style={{ padding: '0 20px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <button onClick={() => setShuffle(s => !s)} style={{ background: 'none', border: 'none', color: shuffle ? '#4da6ff' : '#555', fontSize: '22px', cursor: 'pointer', padding: '12px', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>🔀</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              <button onClick={playPrev} disabled={isYearShuffle || isDiscover} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '8px' }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+              </button>
+              <button onClick={togglePlay} style={{ width: '70px', height: '70px', borderRadius: '50%', background: '#4da6ff', border: 'none', color: '#000', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {playing
+                  ? <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                  : <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '4px' }}><path d="M8 5v14l11-7z" /></svg>
+                }
+              </button>
+              <button onClick={handleSkipNext} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '8px' }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
+              </button>
             </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#4da6ff', fontWeight: 600 }}>{fmt(progress)}</span>
-            <span style={{ fontSize: '11px', color: '#666' }}>{fmt(duration)}</span>
-          </div>
-
-          {/* Heart + Recommend */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '40px', marginBottom: '8px' }}>
-            <button onClick={toggleFavourite} style={{ background: 'none', border: 'none', fontSize: '26px', cursor: 'pointer', padding: '8px', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '50px', minHeight: '50px' }}>
-              {isFavd ? '❤️' : '🤍'}
-            </button>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <button onClick={toggleRecommend} style={{
-                background: isRecommended ? 'rgba(255,50,50,0.15)' : 'none',
-                border: isRecommended ? '1px solid rgba(255,80,80,0.5)' : '1px solid transparent',
-                borderRadius: '50%', fontSize: '26px', cursor: 'pointer', padding: '8px',
-                filter: isRecommended ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.4)',
-                touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
-                minWidth: '50px', minHeight: '50px',
-              }}>👍</button>
-              {recCount && <span style={{ fontSize: '10px', color: '#ff5555', fontWeight: 700, marginTop: '1px' }}>{recCount}</span>}
-            </div>
-          </div>
-
-          {/* Shuffle | Prev | Play | Next | Repeat */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <button onClick={() => setShuffle(s => !s)} style={{ background: 'none', border: 'none', color: shuffle ? '#4da6ff' : '#555', fontSize: '20px', cursor: 'pointer', padding: '10px', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>🔀</button>
-            <button onClick={playPrev} disabled={isYearShuffle || isDiscover} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '8px', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
-            </button>
-            <button onClick={togglePlay} style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#4da6ff', border: 'none', color: '#000', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>
-              {playing
-                ? <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
-                : <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '3px' }}><path d="M8 5v14l11-7z" /></svg>
-              }
-            </button>
-            <button onClick={handleSkipNext} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '8px', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
-            </button>
-            <button onClick={() => setRepeat(r => r === 'off' ? 'all' : r === 'all' ? 'one' : 'off')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '10px', position: 'relative', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
+            {/* Repeat */}
+            <button onClick={() => setRepeat(r => r === 'off' ? 'all' : r === 'all' ? 'one' : 'off')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '12px', position: 'relative', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
               {repeat === 'one'
-                ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#4da6ff"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z" /></svg>
-                : <svg width="22" height="22" viewBox="0 0 24 24" fill={repeat === 'all' ? '#4da6ff' : '#555'}><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" /></svg>
+                ? <svg width="24" height="24" viewBox="0 0 24 24" fill="#4da6ff"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z" /></svg>
+                : <svg width="24" height="24" viewBox="0 0 24 24" fill={repeat === 'all' ? '#4da6ff' : '#555'}><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" /></svg>
               }
               {repeat !== 'off' && <div style={{ position: 'absolute', bottom: '4px', left: '50%', transform: 'translateX(-50%)', width: '4px', height: '4px', borderRadius: '50%', background: '#4da6ff' }} />}
             </button>
           </div>
-
           {/* Volume */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M3 9v6h4l5 5V4L7 9H3z" /></svg>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#666"><path d="M3 9v6h4l5 5V4L7 9H3z" /></svg>
             <input type="range" min={0} max={1} step={0.01} value={volume}
               onChange={e => { const v = parseFloat(e.target.value); setVolume(v); if (audioRef.current) audioRef.current.volume = v; }}
               style={{ flex: 1, accentColor: '#4da6ff', height: '4px' }}
             />
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#666"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
           </div>
         </div>
       </div>
