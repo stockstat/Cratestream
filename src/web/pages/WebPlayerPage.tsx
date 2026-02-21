@@ -394,11 +394,16 @@ export function WebPlayerPage() {
   };
 
   const fmt = (s: number) => !s || isNaN(s) ? '0:00' : `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
-  const cleanName = (n: string) => n.replace(/\.(mp3|flac|wav|ogg|m4a|aac)$/i, '').replace(/^\d+\s*[-_.]\s*/, '').trim();
+  const cleanName = (n: string) => {
+    return n
+      .replace(/\.(mp3|flac|wav|ogg|m4a|aac)$/i, '')  // remove extension
+      .replace(/^\d+\s*[-_.]\s*/, '')                  // remove leading track number e.g. "01 - " or "01."
+      .replace(/^[A-Za-z]\d+[-_.]\s*/, '')             // remove "A01-" style prefixes
+      .replace(/_/g, ' ')                                // underscores to spaces
+      .replace(/\s{2,}/g, ' ')                           // collapse multiple spaces
+      .trim();
+  };
   const isFavd = currentTrack ? favIds.has(currentTrack.fileName) : false;
-  const sanitizedTrackId = currentTrack ? currentTrack.fileName.replace(/[/\\#%?]/g, '_').substring(0, 500) : '';
-  const isRecommended = currentTrack ? myRecommendIds.has(sanitizedTrackId) : false;
-  const recCount = communityTracks.find(t => t.id === sanitizedTrackId)?.count ?? 0;
   const artistAlbums = selectedArtist ? (artists[selectedArtist] || []) : [];
   const yearAlbums   = selectedYear   ? index.filter(a => a.year === selectedYear) : [];
 
@@ -467,13 +472,13 @@ export function WebPlayerPage() {
             <button
               onClick={toggleRecommend}
               disabled={!user}
-              title={user ? (currentTrack && isRecommended ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
+              title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
               style={{
-                background: isRecommended ? 'rgba(255,50,50,0.15)' : 'none',
-                border: isRecommended ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
+                background: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'rgba(255,50,50,0.15)' : 'none',
+                border: currentTrack && myRecommendIds.has(currentTrack.fileName) ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
                 borderRadius: '50%', fontSize: '28px', cursor: 'pointer', padding: '16px',
                 opacity: user ? 1 : 0.3,
-                filter: isRecommended ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.4)',
+                filter: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.5)',
                 touchAction: 'manipulation',
                 WebkitTapHighlightColor: 'transparent',
                 minWidth: '64px', minHeight: '64px',
@@ -481,9 +486,9 @@ export function WebPlayerPage() {
             >
               👍
             </button>
-            {recCount > 0 && (
-              <span style={{ fontSize: '10px', color: isRecommended ? '#ff5555' : '#4da6ff', fontWeight: 700 }}>
-                {recCount}
+            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName) && (
+              <span style={{ fontSize: '10px', color: '#4da6ff', fontWeight: 700 }}>
+                {communityTracks.find(t => t.id === currentTrack.fileName)?.count}
               </span>
             )}
           </div>
