@@ -141,8 +141,7 @@ export function WebPlayerPage() {
 
   // ── Favourites toggle ──
   const toggleFavourite = async () => {
-    if (!user) { window.location.href = '/login?redirect=/listen'; return; }
-    if (!currentTrack || !currentAlbum) return;
+    if (!user || !currentTrack || !currentAlbum) return;
     const ref = doc(db, 'users', user.uid);
     const trackId = currentTrack.fileName;
     const favTrack: FavTrack = {
@@ -182,8 +181,7 @@ export function WebPlayerPage() {
   };
 
   const toggleRecommend = async () => {
-    if (!user) { window.location.href = '/login?redirect=/listen'; return; }
-    if (!currentTrack || !currentAlbum) return;
+    if (!user || !currentTrack || !currentAlbum) return;
     // Sanitize fileName for use as Firestore doc ID (no slashes or special chars)
     const trackId = currentTrack.fileName.replace(/[/\\#%?]/g, '_').substring(0, 500);
     const ref = doc(db, 'recommendations', trackId);
@@ -411,29 +409,23 @@ export function WebPlayerPage() {
           onEnded={handleTrackEnd} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
         />
         {/* Top bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 8px', paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
-          <button onClick={() => setShowNowPlaying(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', padding: '8px', lineHeight: 1 }}>✕</button>
-          <div style={{ textAlign: 'center', flex: 1, padding: '0 12px' }}>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanName(currentTrack.name)}</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '2px' }}>
-              {isDiscover && <span style={{ fontSize: '10px', color: '#a78bfa', background: 'rgba(124,58,237,0.2)', borderRadius: '6px', padding: '1px 6px' }}>🎲 Discover</span>}
-              <button
-                onClick={() => {
-                  if (currentAlbum?.artist) {
-                    setShowNowPlaying(false);
-                    openArtist(currentAlbum.artist);
-                  }
-                }}
-                style={{ background: 'none', border: 'none', color: '#ff8c00', fontSize: '12px', cursor: 'pointer', padding: '0', fontWeight: 600 }}
-              >
-                {currentAlbum?.artist}
-              </button>
-            </div>
+        <div style={{ paddingTop: 'max(16px, env(safe-area-inset-top))', padding: '16px 20px 8px' }}>
+          {/* Close button row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <button onClick={() => setShowNowPlaying(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', padding: '4px 8px', lineHeight: 1, touchAction: 'manipulation' }}>✕</button>
+            {isDiscover && <span style={{ fontSize: '10px', color: '#a78bfa', background: 'rgba(124,58,237,0.2)', borderRadius: '6px', padding: '3px 8px' }}>🎲 Discover</span>}
+            <div style={{ width: '38px' }} />
           </div>
-          {currentAlbum?.artworkUrl
-            ? <img src={currentAlbum.artworkUrl} alt="" style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-            : <div style={{ width: '44px', height: '44px', borderRadius: '6px', background: '#222', flexShrink: 0 }} />
-          }
+          {/* Track title - full width centered */}
+          <div style={{ textAlign: 'center', width: '100%' }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 8px' }}>{cleanName(currentTrack.name)}</div>
+            <button
+              onClick={() => { if (currentAlbum?.artist) { setShowNowPlaying(false); openArtist(currentAlbum.artist); } }}
+              style={{ background: 'none', border: 'none', color: '#ff8c00', fontSize: '13px', cursor: 'pointer', padding: '4px 0', fontWeight: 600, touchAction: 'manipulation' }}
+            >
+              {currentAlbum?.artist}
+            </button>
+          </div>
         </div>
         {/* Progress bar */}
         <div style={{ padding: '8px 20px' }}>
@@ -459,12 +451,13 @@ export function WebPlayerPage() {
         </div>
         {/* Heart + Recommend */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', padding: '8px 40px', touchAction: 'manipulation' }}>
-          <button onClick={toggleFavourite} title={user ? 'Save to favourites' : 'Sign in to save'} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '16px', opacity: user ? 1 : 0.3, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '64px', minHeight: '64px' }}>
+          <button onClick={toggleFavourite} disabled={!user} title={user ? 'Save to favourites' : 'Sign in to save'} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '16px', opacity: user ? 1 : 0.3, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '64px', minHeight: '64px' }}>
             {isFavd ? '❤️' : '🤍'}
           </button>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
             <button
               onClick={toggleRecommend}
+              disabled={!user}
               title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
               style={{
                 background: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'rgba(255,50,50,0.15)' : 'none',
