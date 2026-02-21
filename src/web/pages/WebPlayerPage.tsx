@@ -141,7 +141,8 @@ export function WebPlayerPage() {
 
   // ── Favourites toggle ──
   const toggleFavourite = async () => {
-    if (!user || !currentTrack || !currentAlbum) return;
+    if (!user) { window.location.href = '/login?redirect=/listen'; return; }
+    if (!currentTrack || !currentAlbum) return;
     const ref = doc(db, 'users', user.uid);
     const trackId = currentTrack.fileName;
     const favTrack: FavTrack = {
@@ -181,7 +182,8 @@ export function WebPlayerPage() {
   };
 
   const toggleRecommend = async () => {
-    if (!user || !currentTrack || !currentAlbum) return;
+    if (!user) { window.location.href = '/login?redirect=/listen'; return; }
+    if (!currentTrack || !currentAlbum) return;
     // Sanitize fileName for use as Firestore doc ID (no slashes or special chars)
     const trackId = currentTrack.fileName.replace(/[/\\#%?]/g, '_').substring(0, 500);
     const ref = doc(db, 'recommendations', trackId);
@@ -410,14 +412,23 @@ export function WebPlayerPage() {
         />
         {/* Top bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 8px', paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
-          <button onClick={() => setShowNowPlaying(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', padding: '8px', lineHeight: 1, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>✕</button>
+          <button onClick={() => setShowNowPlaying(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', padding: '8px', lineHeight: 1 }}>✕</button>
           <div style={{ textAlign: 'center', flex: 1, padding: '0 12px' }}>
-            {isDiscover && <div style={{ marginBottom: '2px' }}><span style={{ fontSize: '10px', color: '#a78bfa', background: 'rgba(124,58,237,0.2)', borderRadius: '6px', padding: '1px 6px' }}>🎲 Discover</span></div>}
-            <button onClick={() => { if (currentAlbum?.artist) { setShowNowPlaying(false); openArtist(currentAlbum.artist); } }}
-              style={{ background: 'none', border: 'none', color: '#ff8c00', fontSize: '13px', cursor: 'pointer', padding: '0', fontWeight: 700, display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
-              {currentAlbum?.artist}
-            </button>
-            <div style={{ fontSize: '13px', fontWeight: 500, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>{cleanName(currentTrack.name)}</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanName(currentTrack.name)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '2px' }}>
+              {isDiscover && <span style={{ fontSize: '10px', color: '#a78bfa', background: 'rgba(124,58,237,0.2)', borderRadius: '6px', padding: '1px 6px' }}>🎲 Discover</span>}
+              <button
+                onClick={() => {
+                  if (currentAlbum?.artist) {
+                    setShowNowPlaying(false);
+                    openArtist(currentAlbum.artist);
+                  }
+                }}
+                style={{ background: 'none', border: 'none', color: '#ff8c00', fontSize: '12px', cursor: 'pointer', padding: '0', fontWeight: 600 }}
+              >
+                {currentAlbum?.artist}
+              </button>
+            </div>
           </div>
           {currentAlbum?.artworkUrl
             ? <img src={currentAlbum.artworkUrl} alt="" style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
@@ -448,22 +459,20 @@ export function WebPlayerPage() {
         </div>
         {/* Heart + Recommend */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', padding: '8px 40px', touchAction: 'manipulation' }}>
-          <button
-            onClick={toggleFavourite}
-            onTouchEnd={e => { e.preventDefault(); toggleFavourite(); }}
-            style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '16px', opacity: user ? 1 : 0.3, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '64px', minHeight: '64px' }}>
+          <button onClick={toggleFavourite} disabled={!user} title={user ? 'Save to favourites' : 'Sign in to save'} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '16px', opacity: user ? 1 : 0.3, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '64px', minHeight: '64px' }}>
             {isFavd ? '❤️' : '🤍'}
           </button>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
             <button
               onClick={toggleRecommend}
-              onTouchEnd={e => { e.preventDefault(); toggleRecommend(); }}
+              disabled={!user}
+              title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
               style={{
-                background: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'rgba(255,50,50,0.15)' : 'none',
-                border: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
+                background: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'rgba(255,50,50,0.15)' : 'none',
+                border: currentTrack && myRecommendIds.has(currentTrack.fileName) ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
                 borderRadius: '50%', fontSize: '28px', cursor: 'pointer', padding: '16px',
                 opacity: user ? 1 : 0.3,
-                filter: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.5)',
+                filter: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.5)',
                 touchAction: 'manipulation',
                 WebkitTapHighlightColor: 'transparent',
                 minWidth: '64px', minHeight: '64px',
@@ -471,9 +480,9 @@ export function WebPlayerPage() {
             >
               👍
             </button>
-            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName.replace(/[/\\#%?]/g, '_')) && (
-              <span style={{ fontSize: '10px', color: '#ff5555', fontWeight: 700 }}>
-                {communityTracks.find(t => t.id === currentTrack.fileName.replace(/[/\\#%?]/g, '_'))?.count}
+            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName) && (
+              <span style={{ fontSize: '10px', color: '#4da6ff', fontWeight: 700 }}>
+                {communityTracks.find(t => t.id === currentTrack.fileName)?.count}
               </span>
             )}
           </div>
