@@ -141,8 +141,7 @@ export function WebPlayerPage() {
 
   // ── Favourites toggle ──
   const toggleFavourite = async () => {
-    if (!user) { window.location.href = '/login?redirect=/listen'; return; }
-    if (!currentTrack || !currentAlbum) return;
+    if (!user || !currentTrack || !currentAlbum) return;
     const ref = doc(db, 'users', user.uid);
     const trackId = currentTrack.fileName;
     const favTrack: FavTrack = {
@@ -182,8 +181,7 @@ export function WebPlayerPage() {
   };
 
   const toggleRecommend = async () => {
-    if (!user) { window.location.href = '/login?redirect=/listen'; return; }
-    if (!currentTrack || !currentAlbum) return;
+    if (!user || !currentTrack || !currentAlbum) return;
     // Sanitize fileName for use as Firestore doc ID (no slashes or special chars)
     const trackId = currentTrack.fileName.replace(/[/\\#%?]/g, '_').substring(0, 500);
     const ref = doc(db, 'recommendations', trackId);
@@ -398,6 +396,9 @@ export function WebPlayerPage() {
   const fmt = (s: number) => !s || isNaN(s) ? '0:00' : `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
   const cleanName = (n: string) => n.replace(/\.(mp3|flac|wav|ogg|m4a|aac)$/i, '').replace(/^\d+\s*[-_.]\s*/, '').trim();
   const isFavd = currentTrack ? favIds.has(currentTrack.fileName) : false;
+  const sanitizedTrackId = currentTrack ? currentTrack.fileName.replace(/[/\\#%?]/g, '_').substring(0, 500) : '';
+  const isRecommended = currentTrack ? myRecommendIds.has(sanitizedTrackId) : false;
+  const recCount = communityTracks.find(t => t.id === sanitizedTrackId)?.count ?? 0;
   const artistAlbums = selectedArtist ? (artists[selectedArtist] || []) : [];
   const yearAlbums   = selectedYear   ? index.filter(a => a.year === selectedYear) : [];
 
@@ -466,13 +467,13 @@ export function WebPlayerPage() {
             <button
               onClick={toggleRecommend}
               disabled={!user}
-              title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
+              title={user ? (currentTrack && isRecommended ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
               style={{
-                background: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'rgba(255,50,50,0.15)' : 'none',
-                border: currentTrack && myRecommendIds.has(currentTrack.fileName) ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
+                background: isRecommended ? 'rgba(255,50,50,0.15)' : 'none',
+                border: isRecommended ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
                 borderRadius: '50%', fontSize: '28px', cursor: 'pointer', padding: '16px',
                 opacity: user ? 1 : 0.3,
-                filter: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.5)',
+                filter: isRecommended ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.4)',
                 touchAction: 'manipulation',
                 WebkitTapHighlightColor: 'transparent',
                 minWidth: '64px', minHeight: '64px',
@@ -480,9 +481,9 @@ export function WebPlayerPage() {
             >
               👍
             </button>
-            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName) && (
-              <span style={{ fontSize: '10px', color: '#4da6ff', fontWeight: 700 }}>
-                {communityTracks.find(t => t.id === currentTrack.fileName)?.count}
+            {recCount > 0 && (
+              <span style={{ fontSize: '10px', color: isRecommended ? '#ff5555' : '#4da6ff', fontWeight: 700 }}>
+                {recCount}
               </span>
             )}
           </div>
