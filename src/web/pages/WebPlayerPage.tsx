@@ -141,7 +141,8 @@ export function WebPlayerPage() {
 
   // ── Favourites toggle ──
   const toggleFavourite = async () => {
-    if (!user || !currentTrack || !currentAlbum) return;
+    if (!user) { window.location.href = '/login?redirect=/listen'; return; }
+    if (!currentTrack || !currentAlbum) return;
     const ref = doc(db, 'users', user.uid);
     const trackId = currentTrack.fileName;
     const favTrack: FavTrack = {
@@ -181,7 +182,8 @@ export function WebPlayerPage() {
   };
 
   const toggleRecommend = async () => {
-    if (!user || !currentTrack || !currentAlbum) return;
+    if (!user) { window.location.href = '/login?redirect=/listen'; return; }
+    if (!currentTrack || !currentAlbum) return;
     // Sanitize fileName for use as Firestore doc ID (no slashes or special chars)
     const trackId = currentTrack.fileName.replace(/[/\\#%?]/g, '_').substring(0, 500);
     const ref = doc(db, 'recommendations', trackId);
@@ -457,13 +459,12 @@ export function WebPlayerPage() {
         </div>
         {/* Heart + Recommend */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', padding: '8px 40px', touchAction: 'manipulation' }}>
-          <button onClick={toggleFavourite} disabled={!user} title={user ? 'Save to favourites' : 'Sign in to save'} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '16px', opacity: user ? 1 : 0.3, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '64px', minHeight: '64px' }}>
+          <button onClick={toggleFavourite} title={user ? 'Save to favourites' : 'Sign in to save'} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '16px', opacity: user ? 1 : 0.3, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '64px', minHeight: '64px' }}>
             {isFavd ? '❤️' : '🤍'}
           </button>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
             <button
               onClick={toggleRecommend}
-              disabled={!user}
               title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
               style={{
                 background: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'rgba(255,50,50,0.15)' : 'none',
