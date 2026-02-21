@@ -456,28 +456,31 @@ export function WebPlayerPage() {
           </div>
         </div>
         {/* Heart + Recommend */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', padding: '8px 40px' }}>
-          <button onClick={toggleFavourite} disabled={!user} title={user ? 'Save to favourites' : 'Sign in to save'} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '8px', opacity: user ? 1 : 0.3 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', padding: '8px 40px', touchAction: 'manipulation' }}>
+          <button onClick={toggleFavourite} disabled={!user} title={user ? 'Save to favourites' : 'Sign in to save'} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '16px', opacity: user ? 1 : 0.3, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minWidth: '64px', minHeight: '64px' }}>
             {isFavd ? '❤️' : '🤍'}
           </button>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
             <button
               onClick={toggleRecommend}
               disabled={!user}
-              title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
+              title={user ? (currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'Remove recommendation' : 'Recommend to community') : 'Sign in to recommend'}
               style={{
-                background: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'rgba(255,50,50,0.15)' : 'none',
-                border: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
-                borderRadius: '50%', fontSize: '28px', cursor: 'pointer', padding: '8px',
+                background: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'rgba(255,50,50,0.15)' : 'none',
+                border: currentTrack && myRecommendIds.has(currentTrack.fileName) ? '1px solid rgba(255,50,50,0.4)' : '1px solid transparent',
+                borderRadius: '50%', fontSize: '28px', cursor: 'pointer', padding: '16px',
                 opacity: user ? 1 : 0.3,
-                filter: currentTrack && myRecommendIds.has(currentTrack.fileName.replace(/[/\\#%?]/g, '_')) ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.5)',
+                filter: currentTrack && myRecommendIds.has(currentTrack.fileName) ? 'sepia(1) saturate(5) hue-rotate(-15deg)' : 'grayscale(1) brightness(0.5)',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                minWidth: '64px', minHeight: '64px',
               }}
             >
               👍
             </button>
-            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName.replace(/[/\\#%?]/g, '_')) && (
-              <span style={{ fontSize: '10px', color: '#ff5555', fontWeight: 700 }}>
-                {communityTracks.find(t => t.id === currentTrack.fileName.replace(/[/\\#%?]/g, '_'))?.count}
+            {currentTrack && communityTracks.find(t => t.id === currentTrack.fileName) && (
+              <span style={{ fontSize: '10px', color: '#4da6ff', fontWeight: 700 }}>
+                {communityTracks.find(t => t.id === currentTrack.fileName)?.count}
               </span>
             )}
           </div>
@@ -485,7 +488,7 @@ export function WebPlayerPage() {
         {/* Controls: shuffle | prev | play | next | repeat */}
         <div style={{ padding: '0 20px 8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <button onClick={() => setShuffle(s => !s)} style={{ background: 'none', border: 'none', color: shuffle ? '#4da6ff' : '#555', fontSize: '22px', cursor: 'pointer', padding: '8px' }}>🔀</button>
+            <button onClick={() => setShuffle(s => !s)} style={{ background: 'none', border: 'none', color: shuffle ? '#4da6ff' : '#555', fontSize: '22px', cursor: 'pointer', padding: '12px', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>🔀</button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
               <button onClick={playPrev} disabled={isYearShuffle || isDiscover} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '8px' }}>
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
@@ -501,7 +504,7 @@ export function WebPlayerPage() {
               </button>
             </div>
             {/* Repeat */}
-            <button onClick={() => setRepeat(r => r === 'off' ? 'all' : r === 'all' ? 'one' : 'off')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', position: 'relative' }}>
+            <button onClick={() => setRepeat(r => r === 'off' ? 'all' : r === 'all' ? 'one' : 'off')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '12px', position: 'relative', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
               {repeat === 'one'
                 ? <svg width="24" height="24" viewBox="0 0 24 24" fill="#4da6ff"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z" /></svg>
                 : <svg width="24" height="24" viewBox="0 0 24 24" fill={repeat === 'all' ? '#4da6ff' : '#555'}><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" /></svg>
