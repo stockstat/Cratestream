@@ -25,8 +25,8 @@ interface ColumnConfig {
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'index',    label: '#',      width: 48,  minWidth: 30,  align: 'right' },
+  { id: 'artist',   label: 'Artist', width: 200, minWidth: 80  },
   { id: 'title',    label: 'Title',  width: 280, minWidth: 100, flex: true },
-  { id: 'artist',   label: 'Artist', width: 180, minWidth: 80  },
   { id: 'album',    label: 'Album',  width: 180, minWidth: 80  },
   { id: 'year',     label: 'Year',   width: 64,  minWidth: 50,  align: 'center' },
   { id: 'duration', label: 'Time',   width: 64,  minWidth: 50,  align: 'right'  },
