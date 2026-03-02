@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../web/hooks/useAuth';
+import { useAuth } from '../hooks/useAuth';
 
 interface TitleBarProps {
   variant?: 'modern';
@@ -8,10 +8,10 @@ interface TitleBarProps {
 export function TitleBar({ variant = 'modern' }: TitleBarProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  
+
   const handleMinimize = () => window.electronAPI?.minimize();
   const handleMaximize = () => window.electronAPI?.maximize();
-  const handleClose = () => window.electronAPI?.close();
+  const handleClose    = () => window.electronAPI?.close();
 
   const handleLogout = async () => {
     await signOut();
@@ -19,18 +19,19 @@ export function TitleBar({ variant = 'modern' }: TitleBarProps) {
   };
 
   return (
-    <div className="h-10 bg-app-surface-dark flex items-center justify-between px-4 drag-region border-b border-app-border">
-      <div className="flex items-center gap-3 no-drag">
-        <div className="w-7 h-7 bg-gradient-to-br from-app-accent to-orange-600 rounded-lg flex items-center justify-center shadow-sm">
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
-          </svg>
-        </div>
-        <span className="text-app-text font-semibold text-sm">CrateStream</span>
+    <div className="h-12 bg-app-surface-dark flex items-center justify-between px-3 drag-region border-b border-app-border">
+
+      {/* Left — Graffiti Logo */}
+      <div className="flex items-center no-drag">
+        <img
+          src="/Cratestream.PNG"
+          alt="CrateStream"
+          style={{ height: 40, width: 'auto', objectFit: 'contain', imageRendering: 'crisp-edges' }}
+        />
       </div>
 
-      {/* Center - User info and account/logout */}
-      <div className="flex-1 flex items-center justify-center gap-3 no-drag">
+      {/* Center — User info */}
+      <div className="flex-1 flex items-center justify-center no-drag">
         {user && (
           <div className="flex items-center gap-2 bg-app-surface px-3 py-1 rounded-full">
             <div className="w-6 h-6 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center">
@@ -64,6 +65,7 @@ export function TitleBar({ variant = 'modern' }: TitleBarProps) {
         )}
       </div>
 
+      {/* Right — Window controls */}
       <div className="flex items-center gap-1 no-drag">
         <button
           onClick={handleMinimize}
