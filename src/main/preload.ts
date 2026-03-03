@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-// Track metadata interface
 export interface TrackMetadata {
   title: string;
   artist: string;
@@ -17,8 +16,6 @@ export interface TrackMetadata {
   artwork?: string;
 }
 
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
   // Window controls
   minimize: () => ipcRenderer.invoke('window:minimize'),
@@ -40,33 +37,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   parseMetadataMultiple: (filePaths: string[]) => ipcRenderer.invoke('metadata:parseMultiple', filePaths),
   rescanArtwork: (filePath: string) => ipcRenderer.invoke('metadata:rescanArtwork', filePath),
 
+  // Auth
+  googleSignIn: () => ipcRenderer.invoke('auth:googleSignIn'),
+
   // Platform info
   platform: process.platform,
 });
 
-// Type definitions for the exposed API
 export interface ElectronAPI {
-  // Window controls
   minimize: () => Promise<void>;
   maximize: () => Promise<void>;
   close: () => Promise<void>;
-
-  // File dialogs
   openFile: () => Promise<string[]>;
   openFolder: () => Promise<string>;
-
-  // File system
   readDir: (path: string) => Promise<Array<{ name: string; isDirectory: boolean; path: string }>>;
   readFile: (path: string) => Promise<Buffer | null>;
   scanFolder: (path: string) => Promise<string[]>;
   showInFolder: (filePath: string) => Promise<void>;
-
-  // Metadata parsing
   parseMetadata: (filePath: string) => Promise<TrackMetadata | null>;
   parseMetadataMultiple: (filePaths: string[]) => Promise<(TrackMetadata | null)[]>;
   rescanArtwork: (filePath: string) => Promise<string | null>;
-
-  // Platform info
+  googleSignIn: () => Promise<{ success: boolean; accessToken?: string; idToken?: string; error?: string }>;
   platform: string;
 }
 

@@ -19,7 +19,6 @@ const ARTWORK_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
 
 // Find folder artwork in a directory
 async function findFolderArtwork(folderPath: string): Promise<string | null> {
-  // Check cache first
   if (folderArtworkCache.has(folderPath)) {
     return folderArtworkCache.get(folderPath) || null;
   }
@@ -28,16 +27,13 @@ async function findFolderArtwork(folderPath: string): Promise<string | null> {
     const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
     const files = entries.filter(e => e.isFile()).map(e => e.name);
 
-    // Look for artwork files
     for (const artName of ARTWORK_FILENAMES) {
       for (const ext of ARTWORK_EXTENSIONS) {
-        // Check exact match (case-insensitive)
         const found = files.find(f => f.toLowerCase() === `${artName}${ext}`);
         if (found) {
           const artworkPath = path.join(folderPath, found);
           const artworkDataUrl = await loadImageAsDataUrl(artworkPath);
           if (artworkDataUrl) {
-            // Cache the result (limit cache size)
             if (folderArtworkCache.size > 200) {
               const firstKey = folderArtworkCache.keys().next().value;
               if (firstKey) folderArtworkCache.delete(firstKey);
@@ -49,7 +45,6 @@ async function findFolderArtwork(folderPath: string): Promise<string | null> {
       }
     }
 
-    // Also check for any image file if no standard names found
     for (const file of files) {
       const ext = path.extname(file).toLowerCase();
       if (ARTWORK_EXTENSIONS.includes(ext)) {
@@ -62,7 +57,6 @@ async function findFolderArtwork(folderPath: string): Promise<string | null> {
       }
     }
 
-    // Cache null result to avoid re-scanning
     folderArtworkCache.set(folderPath, null);
     return null;
   } catch (error) {
@@ -72,7 +66,6 @@ async function findFolderArtwork(folderPath: string): Promise<string | null> {
   }
 }
 
-// Load image file as data URL
 async function loadImageAsDataUrl(imagePath: string): Promise<string | null> {
   try {
     const buffer = await fs.promises.readFile(imagePath);
@@ -111,6 +104,77 @@ let mainWindow: BrowserWindow | null = null;
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
+// ── Google OAuth via system browser ──────────────────────────────────────────
+// We open a small auth window pointing to Firebase's Google OAuth flow,
+// intercept the redirect, and send the credential back to the renderer.
+let authWindow: BrowserWindow | null = null;
+
+ipcMain.handle('auth:googleSignIn', async () => {
+  return new Promise((resolve) => {
+    const FIREBASE_API_KEY = 'AIzaSyDvDKg71xvmIqJcGqsj3WFaY9B2AXJdfAk';
+    const AUTH_DOMAIN = 'cratestream-e374c.firebaseapp.com';
+
+    // Use Firebase's OAuth endpoint with a redirect back to localhost
+    const redirectUri = 'https://cratestream-e374c.firebaseapp.com/__/auth/handler';
+    const googleAuthUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth` +
+      `?client_id=495574745944-web` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=token` +
+      `&scope=email%20profile`;
+
+    // Open Firebase auth page in a new Electron window
+    authWindow = new BrowserWindow({
+      width: 500,
+      height: 650,
+      parent: mainWindow || undefined,
+      modal: true,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    // Load Firebase's hosted auth page which handles Google OAuth correctly
+    const authUrl = `https://${AUTH_DOMAIN}/__/auth/handler?apiKey=${FIREBASE_API_KEY}&appName=%5BDEFAULT%5D&authType=signInViaPopup&redirectUrl=${encodeURIComponent('https://' + AUTH_DOMAIN)}&v=10&providerId=google.com&scopes=profile%2Cemail`;
+
+    authWindow.loadURL(authUrl);
+    authWindow.once('ready-to-show', () => authWindow?.show());
+
+    // Watch for the token in the URL
+    authWindow.webContents.on('will-navigate', (_, url) => {
+      handleAuthUrl(url, resolve);
+    });
+
+    authWindow.webContents.on('will-redirect', (_, url) => {
+      handleAuthUrl(url, resolve);
+    });
+
+    authWindow.on('closed', () => {
+      authWindow = null;
+      resolve({ success: false, error: 'Auth window closed' });
+    });
+  });
+});
+
+function handleAuthUrl(url: string, resolve: (value: any) => void) {
+  // Look for the token in the URL fragment or query
+  try {
+    const urlObj = new URL(url);
+    const params = new URLSearchParams(urlObj.hash.replace('#', ''));
+    const accessToken = params.get('access_token');
+    const idToken = params.get('id_token');
+
+    if (accessToken || idToken) {
+      authWindow?.close();
+      resolve({ success: true, accessToken, idToken });
+    }
+  } catch (e) {
+    // Not the auth callback URL yet
+  }
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -145,21 +209,12 @@ function createWindow(): void {
 }
 
 // Window control handlers
-ipcMain.handle('window:minimize', () => {
-  mainWindow?.minimize();
-});
-
+ipcMain.handle('window:minimize', () => mainWindow?.minimize());
 ipcMain.handle('window:maximize', () => {
-  if (mainWindow?.isMaximized()) {
-    mainWindow.unmaximize();
-  } else {
-    mainWindow?.maximize();
-  }
+  if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+  else mainWindow?.maximize();
 });
-
-ipcMain.handle('window:close', () => {
-  mainWindow?.close();
-});
+ipcMain.handle('window:close', () => mainWindow?.close());
 
 // File dialog handlers
 ipcMain.handle('dialog:openFile', async () => {
@@ -211,18 +266,15 @@ ipcMain.handle('metadata:parse', async (_, filePath: string): Promise<TrackMetad
     const metadata = await mm.parseFile(filePath);
     const { common, format } = metadata;
 
-    // Extract artwork if available (embedded first)
     let artworkDataUrl: string | undefined;
     if (common.picture && common.picture.length > 0) {
       const picture = common.picture[0];
-      // Check cache first
       const cacheKey = `${filePath}-${picture.data.length}`;
       if (artworkCache.has(cacheKey)) {
         artworkDataUrl = artworkCache.get(cacheKey);
       } else {
         const base64 = picture.data.toString('base64');
         artworkDataUrl = `data:${picture.format};base64,${base64}`;
-        // Cache the artwork (limit cache size)
         if (artworkCache.size > 500) {
           const firstKey = artworkCache.keys().next().value;
           if (firstKey) artworkCache.delete(firstKey);
@@ -231,16 +283,12 @@ ipcMain.handle('metadata:parse', async (_, filePath: string): Promise<TrackMetad
       }
     }
 
-    // If no embedded artwork, look for folder artwork
     if (!artworkDataUrl) {
       const folderPath = path.dirname(filePath);
       const folderArtwork = await findFolderArtwork(folderPath);
-      if (folderArtwork) {
-        artworkDataUrl = folderArtwork;
-      }
+      if (folderArtwork) artworkDataUrl = folderArtwork;
     }
 
-    // Get format from file extension
     const ext = path.extname(filePath).slice(1).toUpperCase();
 
     return {
@@ -260,7 +308,6 @@ ipcMain.handle('metadata:parse', async (_, filePath: string): Promise<TrackMetad
     };
   } catch (error) {
     console.error('Error parsing metadata:', error);
-    // Return basic info on error
     return {
       title: path.basename(filePath, path.extname(filePath)),
       artist: 'Unknown Artist',
@@ -271,7 +318,6 @@ ipcMain.handle('metadata:parse', async (_, filePath: string): Promise<TrackMetad
   }
 });
 
-// Batch metadata parsing for multiple files
 ipcMain.handle('metadata:parseMultiple', async (_, filePaths: string[]): Promise<(TrackMetadata | null)[]> => {
   const results: (TrackMetadata | null)[] = [];
 
@@ -297,13 +343,10 @@ ipcMain.handle('metadata:parseMultiple', async (_, filePaths: string[]): Promise
         }
       }
 
-      // If no embedded artwork, look for folder artwork
       if (!artworkDataUrl) {
         const folderPath = path.dirname(filePath);
         const folderArtwork = await findFolderArtwork(folderPath);
-        if (folderArtwork) {
-          artworkDataUrl = folderArtwork;
-        }
+        if (folderArtwork) artworkDataUrl = folderArtwork;
       }
 
       const ext = path.extname(filePath).slice(1).toUpperCase();
@@ -338,7 +381,6 @@ ipcMain.handle('metadata:parseMultiple', async (_, filePaths: string[]): Promise
   return results;
 });
 
-// Recursive folder scanning
 ipcMain.handle('fs:scanFolder', async (_, folderPath: string): Promise<string[]> => {
   const audioExtensions = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.wma', '.opus', '.aiff', '.ape', '.wv'];
   const audioFiles: string[] = [];
@@ -346,20 +388,15 @@ ipcMain.handle('fs:scanFolder', async (_, folderPath: string): Promise<string[]>
   async function scanDir(dirPath: string): Promise<void> {
     try {
       const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-
       for (const entry of entries) {
         const fullPath = path.join(dirPath, entry.name);
-
         if (entry.isDirectory()) {
-          // Skip hidden folders and common non-music folders
           if (!entry.name.startsWith('.') && !['node_modules', '__pycache__'].includes(entry.name)) {
             await scanDir(fullPath);
           }
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).toLowerCase();
-          if (audioExtensions.includes(ext)) {
-            audioFiles.push(fullPath);
-          }
+          if (audioExtensions.includes(ext)) audioFiles.push(fullPath);
         }
       }
     } catch (error) {
@@ -371,7 +408,6 @@ ipcMain.handle('fs:scanFolder', async (_, folderPath: string): Promise<string[]>
   return audioFiles;
 });
 
-// Show file in folder (file explorer)
 ipcMain.handle('fs:showInFolder', async (_, filePath: string): Promise<void> => {
   try {
     shell.showItemInFolder(filePath);
@@ -380,21 +416,14 @@ ipcMain.handle('fs:showInFolder', async (_, filePath: string): Promise<void> => 
   }
 });
 
-// Rescan artwork for a file (clear cache and re-scan)
 ipcMain.handle('metadata:rescanArtwork', async (_, filePath: string): Promise<string | null> => {
   try {
-    // Clear folder artwork cache for this folder
     const folderPath = path.dirname(filePath);
     folderArtworkCache.delete(folderPath);
-
-    // Clear any cached artwork for this file
     for (const key of artworkCache.keys()) {
-      if (key.startsWith(filePath)) {
-        artworkCache.delete(key);
-      }
+      if (key.startsWith(filePath)) artworkCache.delete(key);
     }
 
-    // First try embedded artwork
     const metadata = await mm.parseFile(filePath);
     if (metadata.common.picture && metadata.common.picture.length > 0) {
       const picture = metadata.common.picture[0];
@@ -404,23 +433,19 @@ ipcMain.handle('metadata:rescanArtwork', async (_, filePath: string): Promise<st
       return artworkDataUrl;
     }
 
-    // Then try folder artwork
-    const folderArtwork = await findFolderArtwork(folderPath);
-    return folderArtwork;
+    return await findFolderArtwork(path.dirname(filePath));
   } catch (error) {
     console.error('Error rescanning artwork:', error);
     return null;
   }
 });
 
-// App lifecycle
 // Register protocol scheme BEFORE app is ready
 protocol.registerSchemesAsPrivileged([
   { scheme: 'local-music', privileges: { secure: true, supportFetchAPI: true, stream: true } }
 ]);
 
 app.whenReady().then(() => {
-  // Register the protocol handler
   protocol.handle('local-music', (request) => {
     const url = request.url.replace('local-music://', '');
     const decodedPath = decodeURIComponent(url);
@@ -431,8 +456,5 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  if (process.platform !== 'darwin') app.quit();
 });
-
