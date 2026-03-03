@@ -40,6 +40,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Auth
   googleSignIn: () => ipcRenderer.invoke('auth:googleSignIn'),
 
+  // Open external URL in system browser
+  openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
+
   // Platform info
   platform: process.platform,
 });

@@ -404,7 +404,11 @@ ipcMain.handle('fs:scanFolder', async (_, folderPath: string): Promise<string[]>
   return audioFiles;
 });
 
-ipcMain.handle('fs:showInFolder', async (_, filePath: string): Promise<void> => {
+ipcMain.handle("shell:openExternal", async (_, url: string) => {
+  shell.openExternal(url);
+});
+
+ipcMain.handle("fs:showInFolder", async (_, filePath: string) => {
   try {
     shell.showItemInFolder(filePath);
   } catch (error) {
