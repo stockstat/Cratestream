@@ -111,19 +111,18 @@ let authWindow: BrowserWindow | null = null;
 
 ipcMain.handle('auth:googleSignIn', async () => {
   return new Promise((resolve) => {
-    const FIREBASE_API_KEY = 'AIzaSyDvDKg71xvmIqJcGqsj3WFaY9B2AXJdfAk';
-    const AUTH_DOMAIN = 'cratestream-e374c.firebaseapp.com';
-
-    // Use Firebase's OAuth endpoint with a redirect back to localhost
+    const GOOGLE_CLIENT_ID = '495574745944-5tvh6gdtqpd7la90eum9htrkmf8hun8g.apps.googleusercontent.com';
     const redirectUri = 'https://cratestream-e374c.firebaseapp.com/__/auth/handler';
-    const googleAuthUrl =
-      `https://accounts.google.com/o/oauth2/v2/auth` +
-      `?client_id=495574745944-web` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&response_type=token` +
-      `&scope=email%20profile`;
+    const nonce = Math.random().toString(36).substring(2);
 
-    // Open Firebase auth page in a new Electron window
+    const authUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth` +
+      `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=token%20id_token` +
+      `&scope=${encodeURIComponent('openid email profile')}` +
+      `&nonce=${nonce}`;
+
     authWindow = new BrowserWindow({
       width: 500,
       height: 650,
@@ -136,13 +135,9 @@ ipcMain.handle('auth:googleSignIn', async () => {
       },
     });
 
-    // Load Firebase's hosted auth page which handles Google OAuth correctly
-    const authUrl = `https://${AUTH_DOMAIN}/__/auth/handler?apiKey=${FIREBASE_API_KEY}&appName=%5BDEFAULT%5D&authType=signInViaPopup&redirectUrl=${encodeURIComponent('https://' + AUTH_DOMAIN)}&v=10&providerId=google.com&scopes=profile%2Cemail`;
-
     authWindow.loadURL(authUrl);
     authWindow.once('ready-to-show', () => authWindow?.show());
 
-    // Watch for the token in the URL
     authWindow.webContents.on('will-navigate', (_, url) => {
       handleAuthUrl(url, resolve);
     });
@@ -157,6 +152,7 @@ ipcMain.handle('auth:googleSignIn', async () => {
     });
   });
 });
+
 
 function handleAuthUrl(url: string, resolve: (value: any) => void) {
   // Look for the token in the URL fragment or query
