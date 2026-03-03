@@ -24,7 +24,7 @@ export function TitleBar({ variant = 'modern' }: TitleBarProps) {
       {/* Left — Graffiti Logo */}
       <div className="flex items-center no-drag">
         <img
-          src="/Cratestream.PNG"
+          src="Cratestream.PNG"
           alt="CrateStream"
           style={{ height: 40, width: 'auto', objectFit: 'contain', imageRendering: 'crisp-edges' }}
         />

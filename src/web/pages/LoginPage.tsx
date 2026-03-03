@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../../web/hooks/useAuth';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { signIn, signInWithGoogle } = useAuth();
-  
-  // Read ?redirect= param so we know where to send user after login
-  const redirectTo = searchParams.get('redirect') || '/account';
+
+  const redirectTo = searchParams.get('redirect') || '/';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,22 +40,22 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 50%, #0a0a0a 100%)' }}>
       <div className="w-full max-w-md">
-        {/* Header */}
+        {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
-              CrateStream
-            </span>
-          </h1>
-          <p className="text-gray-300">Welcome back!</p>
+          <img
+            src="Cratestream.PNG"
+            alt="CrateStream"
+            style={{ height: 80, width: 'auto', margin: '0 auto 16px', objectFit: 'contain' }}
+          />
+          <p className="text-gray-300 text-sm">The vault of 90s hip-hop</p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-lg p-8 shadow-xl">
+        {/* Card */}
+        <div className="rounded-xl p-8 shadow-xl" style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)' }}>
           {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-200 text-sm">
+            <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)', color: '#fca5a5' }}>
               {error}
             </div>
           )}
@@ -68,7 +67,8 @@ export function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                className="w-full px-4 py-3 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                 placeholder="your@email.com"
                 required
               />
@@ -80,7 +80,8 @@ export function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                className="w-full px-4 py-3 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                 placeholder="••••••••"
                 required
               />
@@ -89,16 +90,17 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-bold rounded-lg hover:from-orange-600 hover:to-yellow-600 transition-all disabled:opacity-50"
+              className="w-full py-3 font-bold rounded-lg transition-all disabled:opacity-50"
+              style={{ background: 'linear-gradient(90deg, #f97316, #eab308)', color: 'white' }}
             >
               {loading ? 'Logging in...' : 'Login'}
             </button>
           </form>
 
           <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-white/20"></div>
+            <div className="flex-1" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }} />
             <span className="px-4 text-sm text-gray-400">or</span>
-            <div className="flex-1 border-t border-white/20"></div>
+            <div className="flex-1" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }} />
           </div>
 
           <button
@@ -123,12 +125,6 @@ export function LoginPage() {
               </Link>
             </p>
           </div>
-        </div>
-
-        <div className="mt-6 text-center">
-          <Link to="/" className="text-gray-400 hover:text-gray-300 text-sm">
-            ← Back to home
-          </Link>
         </div>
       </div>
     </div>
